@@ -1,0 +1,67 @@
+/* ── the Made log ──────────────────────────────────────────────────────
+   One card per print. Everything here reuses the sheet's tokens and the card
+   grammar from bluesheet.css; the only new shapes are the render/photograph
+   pair and the three-column estimate-against-actual table. */
+
+[data-made] .cards { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+.card--made { cursor: default; min-height: 0; gap: 8px; }
+
+.made-summary { display: flex; flex-direction: column; gap: 2px; width: 100%; }
+.made-summary .prose { margin: 0; }
+.made-watcher { font-family: var(--mono); font-size: 11px; color: var(--ink-dim); }
+.made-watcher[data-reachable='no'] { color: var(--caution); }
+
+/* the pair */
+.made-pics { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.made-fig { margin: 0; display: flex; flex-direction: column; gap: 3px; }
+.made-fig figcaption { font-size: 10px; color: var(--ink-dim); }
+.made-img {
+  display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover;
+  background: var(--sheet-sunk); border: var(--hair) solid var(--line-faint);
+}
+.made-img--none {
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--plate); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--line-faint);
+}
+
+/* the state line */
+.made-state {
+  font-family: var(--plate); font-weight: 600; font-size: 11px;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink);
+  padding: 4px 0; border-top: var(--hair) solid var(--line-faint); border-bottom: var(--hair) solid var(--line-faint);
+}
+.made-state[data-state='printing'] { color: var(--heat); }
+.made-state[data-state='failed'] { color: var(--heat); }
+.made-state[data-state='unknown'] { color: var(--caution); }
+.made-error { font-family: var(--sans); font-size: 11px; line-height: 1.5; color: var(--caution); margin: 0; }
+
+/* estimate against actual */
+.made-cmp { display: grid; grid-template-columns: auto 1fr 1fr; gap: 2px 12px; align-items: baseline; }
+.made-cmp .num { font-size: 13px; text-align: right; white-space: nowrap; }
+.made-cmp .lbl { font-size: 10px; }
+.made-cmp .lbl:nth-child(-n + 3) { text-align: right; color: var(--ink-dim); }
+.made-verdict { font-family: var(--sans); font-size: 11.5px; line-height: 1.5; color: var(--ink-dim); margin: 0; }
+
+.made-weigh { display: flex; align-items: center; gap: 8px; }
+.made-weigh .made-grams { width: 90px; text-align: right; }
+
+/* events, folded */
+.made-events summary { cursor: pointer; list-style: none; padding: 4px 0; }
+.made-events summary::before { content: '▸ '; color: var(--line); }
+.made-events[open] summary::before { content: '▾ '; }
+.made-events ul { margin: 0; padding: 0 0 4px 12px; font-size: 11px; line-height: 1.55; color: var(--ink-dim); }
+.made-ev-at { color: var(--line); }
+.made-ev-detail { color: var(--ink-dim); }
+
+.made-notes {
+  width: 100%; resize: vertical; min-height: 44px;
+  font-family: var(--sans); font-size: 12px; line-height: 1.5;
+  color: var(--ink); background: var(--sheet-sunk);
+  border: var(--hair) solid var(--line-faint); padding: 6px 8px;
+}
+.made-notes:focus { outline: 1px solid var(--heat); outline-offset: 2px; border-color: var(--line); }
+
+@media (max-width: 560px) {
+  [data-made] .cards { grid-template-columns: 1fr; }
+}

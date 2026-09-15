@@ -1,0 +1,5 @@
+/* The public, serverless copy of Bluesheet (tools/build-static.mjs links this).
+   Anything that needs the Python server — saved designs, the plate, the slicer,
+   the printer, the Made log, the geocoder — is hidden rather than left to fail. */
+.is-static [data-needs-server] { display: none !important; }
+.is-static [data-static-only] { display: block !important; }

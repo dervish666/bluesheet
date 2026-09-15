@@ -1,0 +1,16 @@
+# Runtime state, written by the server and specific to one machine: the plate,
+# the print log, the Made log and its photos, the saved-design library, the
+# geocoder cache and the elevation tile cache. All of it is regenerated on
+# demand and none of it belongs to the code.
+state/
+library/
+assets/elev/
+cache/
+*.3mf
+*.gcode
+__pycache__/
+*.pyc
+node_modules/
+
+# written by tests/run.mjs
+result.json

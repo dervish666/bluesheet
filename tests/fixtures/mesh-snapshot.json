@@ -1,0 +1,1135 @@
+{
+ "boxlid/<defaults>": {
+  "hash": "a891f88c38d740b0",
+  "tris": 1064,
+  "verts": 560,
+  "vol": 40313.016128,
+  "bbox": [
+   160.4,
+   93.2,
+   41.6
+  ]
+ },
+ "boxlid/preset:Bolt tin": {
+  "hash": "3a0670dc1131ca9d",
+  "tris": 4510,
+  "verts": 2289,
+  "vol": 57095.896799,
+  "bbox": [
+   170.4,
+   83.2,
+   33.05
+  ]
+ },
+ "boxlid/preset:Screw-top pill jar": {
+  "hash": "8a06cb42a14f74a8",
+  "tris": 14968,
+  "verts": 7488,
+  "vol": 14327.125914,
+  "bbox": [
+   78.4,
+   37.2,
+   47.6
+  ]
+ },
+ "boxlid/preset:Pocket clamshell for earbuds": {
+  "hash": "2314635662bab8a6",
+  "tris": 6616,
+  "verts": 3304,
+  "vol": 18172.887579,
+  "bbox": [
+   65.2,
+   100.65,
+   20.52
+  ]
+ },
+ "boxlid/preset:SD card case": {
+  "hash": "f35a1c2242b9bd43",
+  "tris": 8168,
+  "verts": 4080,
+  "vol": 12921.439285,
+  "bbox": [
+   70.4,
+   74.65,
+   15.12
+  ]
+ },
+ "boxlid/preset:Vented seed tin": {
+  "hash": "70370e254344e9cc",
+  "tris": 8420,
+  "verts": 4176,
+  "vol": 41654.926218,
+  "bbox": [
+   164,
+   96,
+   46
+  ]
+ },
+ "boxlid/preset:Screwed-down desk tray": {
+  "hash": "a9bb22d341112332",
+  "tris": 5526,
+  "verts": 2783,
+  "vol": 64636.343483,
+  "bbox": [
+   124,
+   152,
+   26.4
+  ]
+ },
+ "boxlid/preset:Magnet-backed fixings box": {
+  "hash": "1f9e943ff6088948",
+  "tris": 2886,
+  "verts": 1447,
+  "vol": 31174.885023,
+  "bbox": [
+   150.4,
+   53.2,
+   29.2
+  ]
+ },
+ "drawer/<defaults>": {
+  "hash": "9f190c9c893ec2a1",
+  "tris": 5012,
+  "verts": 2508,
+  "vol": 61071.433501,
+  "bbox": [
+   149,
+   99,
+   30
+  ]
+ },
+ "drawer/preset:Desk drawer, pens and scissors": {
+  "hash": "550b1594f873b461",
+  "tris": 4606,
+  "verts": 2303,
+  "vol": 110599.072886,
+  "bbox": [
+   149,
+   99,
+   30
+  ]
+ },
+ "drawer/preset:Bolt tin": {
+  "hash": "3d8dae16af0b2639",
+  "tris": 5764,
+  "verts": 3836,
+  "vol": 64787.868087,
+  "bbox": [
+   109,
+   109,
+   26
+  ]
+ },
+ "drawer/preset:Cutlery tray, prints in two": {
+  "hash": "9dc40cc09aad7e06",
+  "tris": 2008,
+  "verts": 1328,
+  "vol": 104595.672571,
+  "bbox": [
+   107.881818,
+   165,
+   45
+  ]
+ },
+ "drawer/preset:Battery bay": {
+  "hash": "1d395974edf260ad",
+  "tris": 4280,
+  "verts": 2142,
+  "vol": 88668.534844,
+  "bbox": [
+   119,
+   91,
+   22
+  ]
+ },
+ "drawer/preset:Fill a measured drawer": {
+  "hash": "1582ba909c321073",
+  "tris": 6952,
+  "verts": 3478,
+  "vol": 88989.973421,
+  "bbox": [
+   166.8,
+   119.8,
+   34
+  ]
+ },
+ "drawer/preset:Cable pass-through caddy": {
+  "hash": "d87c41b79616214d",
+  "tris": 680,
+  "verts": 560,
+  "vol": 50199.615853,
+  "bbox": [
+   139,
+   89,
+   40
+  ]
+ },
+ "drawer/preset:Dividers only, no floor": {
+  "hash": "f342d9d23120d39a",
+  "tris": 1540,
+  "verts": 1260,
+  "vol": 89586.6675,
+  "bbox": [
+   159,
+   109,
+   45
+  ]
+ },
+ "gridfinity/<defaults>": {
+  "hash": "7b68f5105785558e",
+  "tris": 788,
+  "verts": 396,
+  "vol": 12557.40919,
+  "bbox": [
+   41.5,
+   41.5,
+   25.4
+  ]
+ },
+ "gridfinity/preset:Bolt tin 1×1×6": {
+  "hash": "eb2da56f9df943dd",
+  "tris": 1388,
+  "verts": 696,
+  "vol": 19078.853126,
+  "bbox": [
+   41.5,
+   41.5,
+   46.4
+  ]
+ },
+ "gridfinity/preset:Long tool bay 3×1×4": {
+  "hash": "c0087c94df2fa45b",
+  "tris": 2252,
+  "verts": 1128,
+  "vol": 48653.785363,
+  "bbox": [
+   125.5,
+   41.5,
+   32.4
+  ]
+ },
+ "gridfinity/preset:Screwdriver bay with scoop": {
+  "hash": "2f3d9b7650b86fcc",
+  "tris": 2588,
+  "verts": 1296,
+  "vol": 42080.467499,
+  "bbox": [
+   167.5,
+   41.5,
+   18.4
+  ]
+ },
+ "gridfinity/preset:2×2 baseplate": {
+  "hash": "2f3f568e6f09794a",
+  "tris": 1524,
+  "verts": 756,
+  "vol": 5724.224056,
+  "bbox": [
+   84,
+   84,
+   5
+  ]
+ },
+ "gridfinity/preset:Six-way parts sorter 2×2×3": {
+  "hash": "1c132073a2b15999",
+  "tris": 6428,
+  "verts": 3216,
+  "vol": 46518.851216,
+  "bbox": [
+   83.5,
+   83.5,
+   25.4
+  ]
+ },
+ "gridfinity/preset:Magnet-mount SMD bin 1×2×3": {
+  "hash": "3ba606684372d20d",
+  "tris": 3308,
+  "verts": 1656,
+  "vol": 30879.216307,
+  "bbox": [
+   41.5,
+   83.5,
+   25.4
+  ]
+ },
+ "gridfinity/preset:Weighted 3×2 baseplate": {
+  "hash": "186cf90f02e42ddb",
+  "tris": 4528,
+  "verts": 2266,
+  "vol": 32781.795635,
+  "bbox": [
+   126,
+   84,
+   7.4
+  ]
+ },
+ "gridfinity/preset:Lidless tray 2×3×2, no lip": {
+  "hash": "a053d17240b190a6",
+  "tris": 2540,
+  "verts": 1272,
+  "vol": 60049.015658,
+  "bbox": [
+   83.5,
+   125.5,
+   14
+  ]
+ },
+ "hooks/<defaults>": {
+  "hash": "9c6219f8f9aed1e0",
+  "tris": 4930,
+  "verts": 2463,
+  "vol": 6408.830131,
+  "bbox": [
+   28.598567,
+   45,
+   18
+  ]
+ },
+ "hooks/preset:Coat hook, screwed": {
+  "hash": "b60b5b19db774795",
+  "tris": 7798,
+  "verts": 3897,
+  "vol": 15465.874696,
+  "bbox": [
+   37.598628,
+   60,
+   22
+  ]
+ },
+ "hooks/preset:Under-desk headphone saddle": {
+  "hash": "efaf1762ee08bada",
+  "tris": 7284,
+  "verts": 3640,
+  "vol": 16649.379701,
+  "bbox": [
+   53.940747,
+   40,
+   34
+  ]
+ },
+ "hooks/preset:Desk-edge cable clip, 6 mm": {
+  "hash": "aa9ddded88b266af",
+  "tris": 3682,
+  "verts": 1843,
+  "vol": 627.116064,
+  "bbox": [
+   8.970905,
+   16,
+   12
+  ]
+ },
+ "hooks/preset:Shelf bracket, 100 × 80": {
+  "hash": "ba55608913cef8e6",
+  "tris": 12834,
+  "verts": 6415,
+  "vol": 35681.365037,
+  "bbox": [
+   80,
+   100,
+   20
+  ]
+ },
+ "hooks/preset:Key hook on a sticky pad": {
+  "hash": "6228723d38f33bc6",
+  "tris": 1312,
+  "verts": 658,
+  "vol": 6383.286047,
+  "bbox": [
+   18.570605,
+   46,
+   20
+  ]
+ },
+ "hooks/preset:Six-way desk cable comb": {
+  "hash": "d8d229b5ad8f1aa4",
+  "tris": 10866,
+  "verts": 5431,
+  "vol": 11052.35718,
+  "bbox": [
+   61.6,
+   15.8,
+   14
+  ]
+ },
+ "hooks/preset:Bench wire spool": {
+  "hash": "d4204a22e21bd92a",
+  "tris": 7822,
+  "verts": 3891,
+  "vol": 79679.686203,
+  "bbox": [
+   74,
+   74,
+   40
+  ]
+ },
+ "skadis/<defaults>": {
+  "hash": "9ad93c18d341c1f2",
+  "tris": 1258,
+  "verts": 631,
+  "vol": 10664.353149,
+  "bbox": [
+   36.079597,
+   56.918305,
+   55
+  ]
+ },
+ "skadis/preset:Tool J-hook": {
+  "hash": "47f84bba82d1d783",
+  "tris": 1270,
+  "verts": 637,
+  "vol": 10244.353139,
+  "bbox": [
+   35.556955,
+   51.945696,
+   55
+  ]
+ },
+ "skadis/preset:Deep parts bin": {
+  "hash": "4b9e43a392a3d188",
+  "tris": 1470,
+  "verts": 737,
+  "vol": 71942.840716,
+  "bbox": [
+   120,
+   71.85,
+   62.5
+  ]
+ },
+ "skadis/preset:Screwdriver rack": {
+  "hash": "672bba7d8e62a45e",
+  "tris": 3156,
+  "verts": 1564,
+  "vol": 37560.484894,
+  "bbox": [
+   140,
+   51.85,
+   22.5
+  ]
+ },
+ "skadis/preset:Pen cup": {
+  "hash": "f017fef97217e492",
+  "tris": 1352,
+  "verts": 678,
+  "vol": 26321.346132,
+  "bbox": [
+   42,
+   47.543473,
+   70
+  ]
+ },
+ "skadis/preset:Fit gauge": {
+  "hash": "de6840ba3b5d0a98",
+  "tris": 6702,
+  "verts": 3323,
+  "vol": 26723.603363,
+  "bbox": [
+   67.5,
+   14.8,
+   95
+  ]
+ },
+ "stand/<defaults>": {
+  "hash": "2a937bd671eca2aa",
+  "tris": 492,
+  "verts": 244,
+  "vol": 148837.764916,
+  "bbox": [
+   87.584827,
+   89.5,
+   44.840084
+  ]
+ },
+ "stand/preset:Tablet on a desk for drawing": {
+  "hash": "90524a959d666f8f",
+  "tris": 482,
+  "verts": 239,
+  "vol": 360978.504373,
+  "bbox": [
+   167.557932,
+   140.8,
+   28.850969
+  ]
+ },
+ "stand/preset:Recipe tablet in the kitchen": {
+  "hash": "42ec1db68e69030d",
+  "tris": 1286,
+  "verts": 643,
+  "vol": 133608.661437,
+  "bbox": [
+   169.191668,
+   111.87,
+   23.269953
+  ]
+ },
+ "stand/preset:E-reader on the nightstand": {
+  "hash": "5930871a5eaf9bba",
+  "tris": 644,
+  "verts": 320,
+  "vol": 137904.27033,
+  "bbox": [
+   91.387758,
+   70.18,
+   57.976433
+  ]
+ },
+ "stand/preset:Bedside phone dock": {
+  "hash": "1c869c5afef26802",
+  "tris": 468,
+  "verts": 232,
+  "vol": 87562.218338,
+  "bbox": [
+   73.227985,
+   58.2,
+   50.575354
+  ]
+ },
+ "stand/preset:Phone for watching across a desk": {
+  "hash": "c299e34acd77aa91",
+  "tris": 472,
+  "verts": 234,
+  "vol": 84664.074313,
+  "bbox": [
+   58.085147,
+   113.96,
+   28.823967
+  ]
+ },
+ "stand/preset:Switch propped for tabletop play": {
+  "hash": "a198d9a8b0195afd",
+  "tris": 156,
+  "verts": 80,
+  "vol": 209256.375303,
+  "bbox": [
+   77.768327,
+   163.2,
+   35.508412
+  ]
+ },
+ "stand/preset:Handheld console parked on charge": {
+  "hash": "3705783db94e0d80",
+  "tris": 164,
+  "verts": 84,
+  "vol": 442345.539957,
+  "bbox": [
+   120.659788,
+   149,
+   58.835101
+  ]
+ },
+ "stand/preset:Headphones hung beside the desk": {
+  "hash": "a3c904c0ab633930",
+  "tris": 1064,
+  "verts": 530,
+  "vol": 278353.564529,
+  "bbox": [
+   161.479472,
+   81,
+   86.280057
+  ]
+ },
+ "gear/<defaults>": {
+  "hash": "e1005e8a3b01dbb6",
+  "tris": 3848,
+  "verts": 1924,
+  "vol": 13957.500399,
+  "bbox": [
+   51.998206,
+   51.998206,
+   8
+  ]
+ },
+ "gear/preset:Printed-in-place planetary": {
+  "hash": "b48055fc8c2ef8eb",
+  "tris": 17552,
+  "verts": 8776,
+  "vol": 30685.743523,
+  "bbox": [
+   97.28352,
+   84.25,
+   8
+  ]
+ },
+ "gear/preset:Motor pinion, 5 mm D-shaft": {
+  "hash": "9ce37edaec12da8a",
+  "tris": 2556,
+  "verts": 1276,
+  "vol": 2465.181529,
+  "bbox": [
+   21.893677,
+   21.893677,
+   15
+  ]
+ },
+ "gear/preset:Lightweight spoked wheel": {
+  "hash": "95aa66f96bdff92f",
+  "tris": 9972,
+  "verts": 4986,
+  "vol": 89130.92672,
+  "bbox": [
+   123.999068,
+   123.999068,
+   8
+  ]
+ },
+ "gear/preset:Quiet herringbone drive wheel": {
+  "hash": "9390d46d3a500070",
+  "tris": 16904,
+  "verts": 8440,
+  "vol": 45665.439063,
+  "bbox": [
+   83.99877,
+   83.99877,
+   14
+  ]
+ },
+ "gear/preset:Rack for a linear stage": {
+  "hash": "2b2a29261ca09b12",
+  "tris": 1220,
+  "verts": 602,
+  "vol": 9058.358987,
+  "bbox": [
+   100.530965,
+   11.7,
+   10
+  ]
+ },
+ "gear/preset:Ring gear, hex mount": {
+  "hash": "44955c4fdfeffe31",
+  "tris": 7896,
+  "verts": 3948,
+  "vol": 23230.964921,
+  "bbox": [
+   99.592921,
+   86.25,
+   10
+  ]
+ },
+ "nameplate/<defaults>": {
+  "hash": "edf669aef21a97eb",
+  "tris": 1572,
+  "verts": 788,
+  "vol": 5256.30858,
+  "bbox": [
+   70,
+   24,
+   4.6
+  ]
+ },
+ "nameplate/preset:Front door number": {
+  "hash": "1c48843424213d03",
+  "tris": 1704,
+  "verts": 854,
+  "vol": 30100.157709,
+  "bbox": [
+   90,
+   70,
+   6.4
+  ]
+ },
+ "nameplate/preset:Keyring tag": {
+  "hash": "ddd06cdd24150af0",
+  "tris": 2588,
+  "verts": 1294,
+  "vol": 2468.112934,
+  "bbox": [
+   46,
+   22,
+   3.4
+  ]
+ },
+ "nameplate/preset:Drawer label": {
+  "hash": "16e9e962b275558a",
+  "tris": 1264,
+  "verts": 634,
+  "vol": 1786.185599,
+  "bbox": [
+   52,
+   16,
+   2.4
+  ]
+ },
+ "nameplate/preset:Spray stencil": {
+  "hash": "b5a654d7f1a8fdd4",
+  "tris": 1800,
+  "verts": 888,
+  "vol": 6406.553185,
+  "bbox": [
+   130,
+   44,
+   1.4
+  ]
+ },
+ "nameplate/preset:Two-colour desk sign": {
+  "hash": "dfe096697e2ad2c9",
+  "tris": 4740,
+  "verts": 2380,
+  "vol": 23683.690106,
+  "bbox": [
+   150,
+   40,
+   4
+  ]
+ },
+ "nameplate/preset:Shelf letters": {
+  "hash": "b59035bc5a87904d",
+  "tris": 1504,
+  "verts": 750,
+  "vol": 9815.168028,
+  "bbox": [
+   106.788571,
+   37.685714,
+   5
+  ]
+ },
+ "lithophane/<defaults>": {
+  "hash": "81e37f0835b88034",
+  "tris": 164826,
+  "verts": 82413,
+  "vol": 30096.76049,
+  "bbox": [
+   114,
+   3.6,
+   114
+  ]
+ },
+ "lithophane/preset:Framed photo for the wall": {
+  "hash": "84b925a5cfca0d9d",
+  "tris": 254128,
+  "verts": 127064,
+  "vol": 44261.878902,
+  "bbox": [
+   166,
+   3.8,
+   116
+  ]
+ },
+ "lithophane/preset:Standing arc for a desk": {
+  "hash": "99f5f48dd2832d7e",
+  "tris": 293756,
+  "verts": 146880,
+  "vol": 43383.494441,
+  "bbox": [
+   35.090788,
+   110.808517,
+   123
+  ]
+ },
+ "lithophane/preset:Night-light shade": {
+  "hash": "4461cf42f5032bba",
+  "tris": 267616,
+  "verts": 133808,
+  "vol": 50953.314101,
+  "bbox": [
+   70,
+   70,
+   95
+  ]
+ },
+ "lithophane/preset:Tea-light arch": {
+  "hash": "a886f91a012b7fc8",
+  "tris": 295928,
+  "verts": 147966,
+  "vol": 26505.803724,
+  "bbox": [
+   33.927724,
+   91.126374,
+   107
+  ]
+ },
+ "lithophane/preset:Keyring pendant": {
+  "hash": "9122204c8af6d18a",
+  "tris": 68086,
+  "verts": 34043,
+  "vol": 3930.376655,
+  "bbox": [
+   42,
+   2.4,
+   52
+  ]
+ },
+ "lithophane/preset:Window panel, tall crop": {
+  "hash": "b177436705fc160a",
+  "tris": 197952,
+  "verts": 98976,
+  "vol": 34921.61665,
+  "bbox": [
+   94,
+   3.4,
+   164
+  ]
+ },
+ "terrain/<defaults>": {
+  "hash": "8242cde9b6a2d649",
+  "tris": 42008,
+  "verts": 21006,
+  "vol": 89479.501687,
+  "bbox": [
+   100,
+   100,
+   12.894443
+  ]
+ },
+ "terrain/preset:Snowdon on the mantelpiece": {
+  "hash": "2ecd46aab418fdc9",
+  "tris": 64000,
+  "verts": 32002,
+  "vol": 283093.039484,
+  "bbox": [
+   130,
+   130,
+   32.0835
+  ]
+ },
+ "terrain/preset:Avon Gorge wall map, first of four": {
+  "hash": "ca2aa2753cd471fe",
+  "tris": 55048,
+  "verts": 27526,
+  "vol": 100033.578327,
+  "bbox": [
+   86.3,
+   86.3,
+   24.31125
+  ]
+ },
+ "terrain/preset:Cheddar Gorge paperweight": {
+  "hash": "13cb1342ee6d9f5b",
+  "tris": 68340,
+  "verts": 34172,
+  "vol": 142371.673856,
+  "bbox": [
+   92.70126,
+   92.70126,
+   23.1275
+  ]
+ },
+ "terrain/preset:Snowdon flooded to 400 m": {
+  "hash": "ce4839ac73b9f66d",
+  "tris": 52436,
+  "verts": 26220,
+  "vol": 146041.597426,
+  "bbox": [
+   120,
+   120,
+   32
+  ]
+ },
+ "terrain/preset:Pocket tile for a coat pocket": {
+  "hash": "fcea803e3f36ffa9",
+  "tris": 17418,
+  "verts": 8711,
+  "vol": 16315.361601,
+  "bbox": [
+   46.057962,
+   46.057962,
+   12.623531
+  ]
+ },
+ "terrain/preset:Settings tryout on the sample ridge": {
+  "hash": "6972eb2c3abe1821",
+  "tris": 35244,
+  "verts": 17624,
+  "vol": 128484.942484,
+  "bbox": [
+   110,
+   110,
+   25.354793
+  ]
+ },
+ "vase/<defaults>": {
+  "hash": "fc4dcce27b4f3007",
+  "tris": 47304,
+  "verts": 23654,
+  "vol": 13643.447209,
+  "bbox": [
+   79.994589,
+   71.905708,
+   120
+  ]
+ },
+ "vase/preset:Windowsill bud vase": {
+  "hash": "c77e14ebcc85c8cc",
+  "tris": 52416,
+  "verts": 26210,
+  "vol": 9775.059793,
+  "bbox": [
+   61.913585,
+   61.913585,
+   150
+  ]
+ },
+ "vase/preset:Desk pen pot": {
+  "hash": "d900a916a1dabf52",
+  "tris": 2752,
+  "verts": 1378,
+  "vol": 46208.577943,
+  "bbox": [
+   74,
+   74,
+   95
+  ]
+ },
+ "vase/preset:Kitchen utensil crock": {
+  "hash": "99a6ce50aae1ed5b",
+  "tris": 84552,
+  "verts": 42278,
+  "vol": 155855.412143,
+  "bbox": [
+   120,
+   120,
+   150
+  ]
+ },
+ "vase/preset:Cut-flower vase": {
+  "hash": "53a4202a0fcd412c",
+  "tris": 183168,
+  "verts": 91586,
+  "vol": 27001.348898,
+  "bbox": [
+   95.794337,
+   95.794337,
+   175
+  ]
+ },
+ "vase/preset:Filament swatch vase": {
+  "hash": "5cb2f48506cb53fd",
+  "tris": 11550,
+  "verts": 5777,
+  "vol": 1899.491428,
+  "bbox": [
+   32.790119,
+   33.304732,
+   42
+  ]
+ },
+ "vase/preset:Ribbed cachepot": {
+  "hash": "7a87ffb5f7f219d4",
+  "tris": 117962,
+  "verts": 58983,
+  "vol": 109266.536263,
+  "bbox": [
+   129.98877,
+   129.994385,
+   110
+  ]
+ },
+ "datasculpt/<defaults>": {
+  "hash": "b5da7948d228cbd2",
+  "tris": 100968,
+  "verts": 50486,
+  "vol": 77653.321993,
+  "bbox": [
+   45.984708,
+   44.307081,
+   120
+  ]
+ },
+ "datasculpt/preset:Core sample of a project": {
+  "hash": "63c4cd50ba751273",
+  "tris": 121968,
+  "verts": 60986,
+  "vol": 73918.250477,
+  "bbox": [
+   49.791988,
+   48.29907,
+   145
+  ]
+ },
+ "datasculpt/preset:A year on your wrist": {
+  "hash": "6e04edd49b815a7d",
+  "tris": 11672,
+  "verts": 5836,
+  "vol": 27138.601478,
+  "bbox": [
+   87.58286,
+   88.599378,
+   10
+  ]
+ },
+ "datasculpt/preset:Heartbeat spiral": {
+  "hash": "782a27a29fb3e743",
+  "tris": 160320,
+  "verts": 80162,
+  "vol": 102727.43394,
+  "bbox": [
+   41.043216,
+   42.499985,
+   100
+  ]
+ },
+ "datasculpt/preset:Four seasons, side by side": {
+  "hash": "5e16b1cd373e8203",
+  "tris": 73454,
+  "verts": 36729,
+  "vol": 56043.904069,
+  "bbox": [
+   150,
+   73.4,
+   12.108087
+  ]
+ },
+ "datasculpt/preset:Pulse bracelet": {
+  "hash": "be92765e2bb01eea",
+  "tris": 7600,
+  "verts": 3800,
+  "vol": 6544.678604,
+  "bbox": [
+   72.545453,
+   72.679234,
+   6
+  ]
+ },
+ "datasculpt/preset:Weather paperweight": {
+  "hash": "695ed56d4b6e3bf4",
+  "tris": 50544,
+  "verts": 25274,
+  "vol": 109995.271243,
+  "bbox": [
+   62,
+   62,
+   70
+  ]
+ },
+ "qrplaque/<defaults>": {
+  "hash": "5a3657919c6dbd02",
+  "tris": 3904,
+  "verts": 2090,
+  "vol": 13067.368193,
+  "bbox": [
+   70,
+   81.7,
+   2.8
+  ]
+ },
+ "qrplaque/preset:Guest Wi-Fi": {
+  "hash": "ae632ba745a4c394",
+  "tris": 4036,
+  "verts": 2154,
+  "vol": 14115.163561,
+  "bbox": [
+   70,
+   89.2,
+   2.8
+  ]
+ },
+ "qrplaque/preset:Link coaster": {
+  "hash": "ef3d53550ae52aa9",
+  "tris": 3032,
+  "verts": 1424,
+  "vol": 17504.074125,
+  "bbox": [
+   90,
+   90,
+   3
+  ]
+ },
+ "qrplaque/preset:Text tag": {
+  "hash": "3b808b32b573f430",
+  "tris": 2516,
+  "verts": 1358,
+  "vol": 2985.195136,
+  "bbox": [
+   34,
+   48.8,
+   2.2
+  ]
+ },
+ "coaster/<defaults>": {
+  "hash": "4b6706b1333d8736",
+  "tris": 5848,
+  "verts": 2926,
+  "vol": 22603.952479,
+  "bbox": [
+   94.980233,
+   95,
+   5.5
+  ]
+ },
+ "coaster/preset:Pint coaster": {
+  "hash": "29b03b268eb971cb",
+  "tris": 5848,
+  "verts": 2926,
+  "vol": 22489.609578,
+  "bbox": [
+   94.980233,
+   95,
+   5.4
+  ]
+ },
+ "coaster/preset:Hex drinks mat": {
+  "hash": "7d6dc6bd8b9a797d",
+  "tris": 836,
+  "verts": 420,
+  "vol": 20311.530046,
+  "bbox": [
+   86.60254,
+   100,
+   5
+  ]
+ },
+ "coaster/preset:Deep spill catcher": {
+  "hash": "b91cac7e14ae8933",
+  "tris": 992,
+  "verts": 498,
+  "vol": 39865.288771,
+  "bbox": [
+   109.980301,
+   110,
+   10
+  ]
+ },
+ "coaster/preset:Engraved gift coaster": {
+  "hash": "10ae0339732d1e07",
+  "tris": 3084,
+  "verts": 1544,
+  "vol": 32677.190408,
+  "bbox": [
+   96,
+   96,
+   5.6
+  ]
+ },
+ "coaster/preset:Plant pot saucer": {
+  "hash": "614757052c555e74",
+  "tris": 7064,
+  "verts": 3534,
+  "vol": 55931.264831,
+  "bbox": [
+   139.980031,
+   140,
+   13.6
+  ]
+ },
+ "coaster/preset:Hot pan trivet": {
+  "hash": "95763b3450d8494a",
+  "tris": 2064,
+  "verts": 972,
+  "vol": 57673.464272,
+  "bbox": [
+   151.554446,
+   175,
+   10.5
+  ]
+ },
+ "coaster/preset:Teapot stand": {
+  "hash": "53e54d6c9544cf33",
+  "tris": 7392,
+  "verts": 3624,
+  "vol": 28212.825595,
+  "bbox": [
+   130,
+   129.920808,
+   8
+  ]
+ },
+ "coaster/preset:Named trivet": {
+  "hash": "177b39d869e689db",
+  "tris": 7796,
+  "verts": 3820,
+  "vol": 94850.223271,
+  "bbox": [
+   165,
+   165,
+   9.5
+  ]
+ }
+}

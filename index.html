@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="description" content="Bluesheet — parametric printable objects, sliced and sent to the printer in the next room.">
+<title>Bluesheet — parametric printable objects</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%230D1621'/%3E%3Cpath d='M3 12.5V3.5h9M3 8h6' stroke='%23FF6A1F' stroke-width='1.6' fill='none'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/fonts.css">
+<link rel="stylesheet" href="css/bluesheet.css">
+<link rel="stylesheet" href="css/inspect.css">
+<link rel="stylesheet" href="css/made.css">
+</head>
+<body>
+
+<div class="frame">
+
+  <!-- The header is the drawing frame's top rule, with the text sitting in
+       breaks in the line rather than in a bar of its own. -->
+  <header class="head">
+    <span class="mark">Bluesheet</span>
+    <span class="rule" aria-hidden="true"></span>
+    <h1 class="crumb">
+      <span class="crumb-cat lbl" data-crumb-cat>—</span>
+      <span class="crumb-sep" aria-hidden="true">/</span>
+      <span class="crumb-gen lbl" data-crumb-gen>Loading</span>
+    </h1>
+    <span class="rule" aria-hidden="true"></span>
+    <button type="button" class="btn btn--head" data-open-inspect aria-haspopup="dialog"
+            title="Drop an STL on the viewer, or pick one, and read what is wrong with it">Inspect</button>
+    <button type="button" class="btn btn--head" data-open-library data-needs-server>Saved</button>
+    <button type="button" class="btn btn--head" data-open-made data-needs-server aria-haspopup="dialog">Made</button>
+    <button type="button" class="btn btn--head" data-open-catalogue aria-haspopup="dialog">Catalogue</button>
+  </header>
+
+  <main class="cols">
+
+    <!-- ── parameters ────────────────────────────────────────────────── -->
+    <section class="col col--params" aria-labelledby="params-h">
+      <div class="col-head">
+        <h2 class="lbl" id="params-h">Parameters</h2>
+        <div class="col-head-tools">
+          <button type="button" class="btn btn--ghost" data-toggle-notes aria-pressed="true">Notes</button>
+        </div>
+      </div>
+      <div class="col-body" data-params-scroll>
+        <p class="prose gen-desc" data-gen-desc></p>
+
+        <div class="prow prow--enum prow--preset" data-preset-row hidden>
+          <div class="prow-head"><label class="lbl" for="preset-select">Preset</label></div>
+          <select class="field select" id="preset-select" data-preset-select></select>
+        </div>
+
+        <div data-param-groups></div>
+
+        <div class="prow prow--enum">
+          <div class="prow-head"><label class="lbl" for="quality-select">Quality</label></div>
+          <select class="field select" id="quality-select" data-quality-select>
+            <option value="draft">Draft — fewer segments</option>
+            <option value="normal" selected>Normal</option>
+            <option value="fine">Fine — slower, smoother</option>
+          </select>
+          <p class="help">Segment counts scale by 0.5 / 1 / 2. Draft is for scrubbing a
+            parameter; slice from Normal or Fine.</p>
+        </div>
+
+        <div class="panel-actions">
+          <button type="button" class="btn btn--wide" data-reset>Reset to defaults</button>
+          <button type="button" class="btn btn--wide" data-save data-needs-server>Save design</button>
+          <button type="button" class="btn btn--wide" data-export>Download STL</button>
+        </div>
+
+        <div class="saverow" data-save-row hidden>
+          <label class="lbl" for="save-name">Name this design</label>
+          <input type="text" class="field num" id="save-name" data-save-name
+                 maxlength="80" autocomplete="off" spellcheck="false">
+          <div class="actions">
+            <button type="button" class="btn" data-save-cancel>Cancel</button>
+            <button type="button" class="btn" data-save-go>Save it</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── model space ───────────────────────────────────────────────── -->
+    <section class="col col--stage" aria-label="Model space">
+      <div class="stage" data-stage>
+        <canvas class="stage-canvas" data-canvas aria-label="3D preview of the current object"></canvas>
+
+        <!-- ISO 128 dimension callouts, projected onto the model. -->
+        <svg class="dimlayer" data-dims aria-hidden="true" focusable="false"></svg>
+
+        <!-- millimetre scale along the bottom edge -->
+        <svg class="scalebar" data-scalebar aria-hidden="true" focusable="false"></svg>
+
+        <div class="viewbar" role="group" aria-label="View">
+          <button type="button" class="vbtn" data-mode="solid" aria-pressed="true">Solid</button>
+          <button type="button" class="vbtn" data-mode="overhang" aria-pressed="false">Overhang</button>
+          <button type="button" class="vbtn" data-mode="wire" aria-pressed="false">Wire</button>
+          <button type="button" class="vbtn" data-mode="gcode" aria-pressed="false" disabled>G-code</button>
+          <span class="vbar-gap" aria-hidden="true"></span>
+          <button type="button" class="vbtn" data-view="iso">Iso</button>
+          <button type="button" class="vbtn" data-view="front">Front</button>
+          <button type="button" class="vbtn" data-view="top">Top</button>
+          <button type="button" class="vbtn" data-fit>Fit</button>
+        </div>
+
+        <div class="section-tool" data-section-tool>
+          <label class="lbl" for="section-z">Section</label>
+          <input type="range" id="section-z" class="section-range" data-section-range
+                 min="0" max="100" value="100" step="0.5">
+          <button type="button" class="btn btn--ghost" data-section-toggle aria-pressed="false">Off</button>
+        </div>
+
+        <!-- The title block: bottom-right, inside the viewport, as on a drawing. -->
+        <div class="titleblock" data-title-block>
+          <div class="tb-row tb-row--head">
+            <span class="tb-mark">Bluesheet</span>
+            <span class="tb-title" data-tb-name>—</span>
+            <span class="tb-rev">Rev <b class="num" data-tb-rev>000</b></span>
+          </div>
+          <div class="tb-row">
+            <span class="tb-cell"><i class="lbl">Variant</i><b class="num" data-tb-variant>—</b></span>
+            <span class="tb-cell"><i class="lbl">Material</i><b class="num" data-tb-material>—</b></span>
+            <span class="tb-cell"><i class="lbl">Scale</i><b class="num" data-tb-scale>—</b></span>
+          </div>
+          <div class="tb-row">
+            <span class="tb-cell tb-cell--wide"><i class="lbl">Size</i><b class="num" data-tb-size>—</b></span>
+            <span class="tb-cell"><i class="lbl">Volume</i><b class="num" data-tb-volume>—</b></span>
+            <span class="tb-cell"><i class="lbl">Mass</i><b class="num" data-tb-mass>—</b></span>
+          </div>
+        </div>
+
+        <div class="stage-busy" data-busy hidden><span class="lbl">Building</span></div>
+      </div>
+    </section>
+
+    <!-- ── analysis ──────────────────────────────────────────────────── -->
+    <section class="col col--analysis" aria-labelledby="analysis-h">
+      <div class="col-head">
+        <h2 class="lbl" id="analysis-h">Analysis</h2>
+        <button type="button" class="btn btn--ghost analysis-toggle" data-analysis-toggle
+                aria-expanded="false" aria-controls="analysis-body">Show</button>
+      </div>
+      <p class="analysis-strip num" data-analysis-strip>—</p>
+      <div class="col-body" id="analysis-body" data-analysis-body>
+
+        <dl class="facts" data-facts></dl>
+
+        <div class="warnlist" data-warnings></div>
+
+        <!-- The plate: several objects, packed, sliced as one print. -->
+        <div class="platebox" data-plate data-needs-server>
+          <h3 class="lbl sub">Plate</h3>
+          <p class="help" data-plate-summary>Nothing on the plate.</p>
+          <div class="actions">
+            <button type="button" class="btn" data-plate-add>Add to plate</button>
+            <button type="button" class="btn" data-plate-show aria-pressed="false" hidden>Show plate</button>
+          </div>
+          <div class="plate-list" data-plate-list></div>
+          <div class="prow prow--num" data-plate-gap-row hidden>
+            <div class="prow-head"><label class="lbl" for="plate-gap">Gap between parts</label><span class="unit num">mm</span></div>
+            <div class="stepper">
+              <button type="button" class="step" data-plate-gap-step="-0.5" aria-label="Smaller gap">&minus;</button>
+              <input class="num field" id="plate-gap" data-plate-gap inputmode="decimal" value="3" autocomplete="off">
+              <button type="button" class="step" data-plate-gap-step="0.5" aria-label="Bigger gap">+</button>
+            </div>
+            <label class="prow prow--bool prow--inline">
+              <span class="lbl">Allow rotating parts</span>
+              <input type="checkbox" class="check" data-plate-rotate checked>
+              <span class="box" aria-hidden="true"></span>
+            </label>
+            <p class="help">3 mm keeps parts apart and costs a bin's width on a full plate of gridfinity — 0 lets parts designed to touch, touch.</p>
+          </div>
+          <div class="actions" data-plate-tools hidden>
+            <button type="button" class="btn" data-plate-clear>Clear plate</button>
+            <button type="button" class="btn btn--heat" data-plate-slice>Slice plate</button>
+          </div>
+        </div>
+
+        <div class="slicebox static-note" data-static-only hidden>
+          <h3 class="lbl sub">Slice &amp; print</h3>
+          <p class="help">This is the public copy of Bluesheet. Slicing runs OrcaSlicer on the laptop in the
+            workshop cupboard and prints go to the A1 mini two metres from it, so those two steps are not
+            here. Everything else is: build the object, read the analysis, download the STL and slice it yourself.</p>
+        </div>
+        <div class="slicebox" data-needs-server>
+          <h3 class="lbl sub">Slice</h3>
+          <div class="prow prow--enum">
+            <div class="prow-head"><label class="lbl" for="slice-profile">Profile</label></div>
+            <select class="field select" id="slice-profile" data-slice-profile></select>
+          </div>
+          <div class="prow prow--enum">
+            <div class="prow-head"><label class="lbl" for="slice-filament">Filament</label></div>
+            <select class="field select" id="slice-filament" data-slice-filament></select>
+          </div>
+          <div class="prow prow--num">
+            <div class="prow-head"><label class="lbl" for="slice-infill">Infill</label><span class="unit num">%</span></div>
+            <div class="stepper">
+              <button type="button" class="step" data-infill-step="-5" aria-label="Less infill">&minus;</button>
+              <input class="num field" id="slice-infill" data-slice-infill inputmode="numeric" value="15" autocomplete="off">
+              <button type="button" class="step" data-infill-step="5" aria-label="More infill">+</button>
+            </div>
+          </div>
+          <label class="prow prow--bool">
+            <span class="lbl">Supports</span>
+            <input type="checkbox" class="check" data-slice-supports>
+            <span class="box" aria-hidden="true"></span>
+          </label>
+
+          <div class="progress" data-progress hidden>
+            <div class="progress-track"><div class="progress-fill" data-progress-fill></div></div>
+            <p class="progress-label num" data-progress-label>—</p>
+          </div>
+
+          <div class="actions">
+            <button type="button" class="btn btn--heat" data-slice>Slice</button>
+            <button type="button" class="btn btn--heat" data-print disabled
+                    title="Slice something first">Print</button>
+          </div>
+          <p class="help" data-print-note>Printing needs a slice first, and then a confirmation.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="statusbar">
+    <span class="lbl status-key" data-status-key>Ready</span>
+    <span class="rule" aria-hidden="true"></span>
+    <span class="num status-msg" data-status-msg></span>
+  </footer>
+</div>
+
+<!-- ── catalogue ────────────────────────────────────────────────────── -->
+<div class="overlay" data-catalogue hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="cat-h">
+    <div class="sheet-head">
+      <h2 class="lbl" id="cat-h">Catalogue</h2>
+      <span class="rule" aria-hidden="true"></span>
+      <button type="button" class="btn" data-close-catalogue>Close</button>
+    </div>
+    <div class="sheet-tools">
+      <label class="lbl vis-hidden" for="cat-search">Search the catalogue</label>
+      <input type="search" class="field" id="cat-search" data-cat-search
+             placeholder="Search" autocomplete="off" spellcheck="false">
+      <div class="chips" data-cat-cats role="group" aria-label="Categories"></div>
+    </div>
+    <div class="sheet-body">
+      <p class="prose empty" data-cat-empty hidden>Nothing matches that. Try a shorter word.</p>
+      <div class="cards" data-cat-cards role="listbox" aria-label="Generators" tabindex="-1"></div>
+      <div class="failures" data-cat-failures hidden>
+        <h3 class="lbl sub">Did not load</h3>
+        <ul class="num" data-cat-failure-list></ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── inspect: drop any STL and read the truth about it ────────────── -->
+<div class="overlay" data-inspect hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="inspect-h">
+    <div class="sheet-head">
+      <h2 class="lbl" id="inspect-h">Inspect</h2>
+      <span class="num inspect-sub" data-inspect-name></span>
+      <span class="rule" aria-hidden="true"></span>
+      <button type="button" class="btn" data-inspect-pick>Pick a file</button>
+      <button type="button" class="btn" data-close-inspect>Close</button>
+    </div>
+    <div class="sheet-body">
+      <input type="file" class="vis-hidden" accept=".stl,model/stl,application/sla,application/octet-stream"
+             data-inspect-file aria-label="Choose an STL file to inspect" tabindex="-1">
+      <p class="prose" data-inspect-intro>Drop an STL anywhere on the viewer, or pick one. Bluesheet reads it
+        off the main thread and reports what a slicer would trip over — open edges, reversed triangles, stray
+        shells, size against the 180 mm bed, weight and cost, overhangs, thin walls — with the numbers, not a
+        verdict.</p>
+      <p class="num inspect-busy" data-inspect-busy hidden></p>
+      <dl class="facts" data-inspect-facts></dl>
+      <div class="warnlist" data-inspect-findings></div>
+      <div data-inspect-prov></div>
+      <div data-inspect-repair></div>
+      <div class="actions inspect-actions">
+        <button type="button" class="btn" data-inspect-do-repair disabled
+                title="Weld, drop degenerate triangles, remove stray shells, flip an inside-out solid, close T-junctions">Repair</button>
+        <button type="button" class="btn" data-inspect-use disabled
+                title="Make this the current object: export, slice and print it like a generated one">Use this object</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── saved designs ────────────────────────────────────────────────── -->
+<div class="overlay" data-library hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="lib-h">
+    <div class="sheet-head">
+      <h2 class="lbl" id="lib-h">Saved designs</h2>
+      <span class="rule" aria-hidden="true"></span>
+      <button type="button" class="btn" data-close-library>Close</button>
+    </div>
+    <div class="sheet-body">
+      <p class="prose empty" data-lib-empty hidden>Nothing saved yet. Build something and press Save design.</p>
+      <div class="cards" data-lib-cards></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── the Made log ─────────────────────────────────────────────────── -->
+<div class="overlay" data-made hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="made-h">
+    <div class="sheet-head">
+      <h2 class="lbl" id="made-h">Made</h2>
+      <span class="rule" aria-hidden="true"></span>
+      <button type="button" class="btn" data-close-made>Close</button>
+    </div>
+    <div class="sheet-tools">
+      <div class="made-summary">
+        <p class="prose" data-made-summary></p>
+        <span class="made-watcher" data-made-watcher></span>
+      </div>
+    </div>
+    <div class="sheet-body">
+      <p class="prose empty" data-made-empty hidden>Nothing made yet. Slice something and the job appears here; when the printer finishes it, so does the photograph.</p>
+      <div class="cards" data-made-cards></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── print confirmation ───────────────────────────────────────────── -->
+<div class="overlay overlay--narrow" data-confirm hidden>
+  <div class="sheet sheet--dialog" role="dialog" aria-modal="true" aria-labelledby="confirm-h">
+    <div class="sheet-head">
+      <h2 class="lbl" id="confirm-h">Send to the printer</h2>
+      <span class="rule" aria-hidden="true"></span>
+    </div>
+    <div class="sheet-body">
+      <p class="prose">This uploads a sliced file to the A1 mini in the cupboard.</p>
+      <dl class="facts">
+        <div class="fact"><dt class="lbl">Object</dt><dd class="num" data-confirm-name>—</dd></div>
+        <div class="fact"><dt class="lbl">Time</dt><dd class="num" data-confirm-time>—</dd></div>
+        <div class="fact"><dt class="lbl">Filament</dt><dd class="num" data-confirm-grams>—</dd></div>
+        <div class="fact"><dt class="lbl">Printer</dt><dd class="num" data-confirm-printer>—</dd></div>
+      </dl>
+      <label class="prow prow--bool">
+        <span class="lbl">Start it printing now</span>
+        <input type="checkbox" class="check" data-confirm-start>
+        <span class="box" aria-hidden="true"></span>
+      </label>
+      <p class="help">Leave that off and the file lands on the SD card for you to start
+        from the printer.</p>
+      <div class="platecheck" data-plate-check hidden>
+        <img class="platecheck-shot" data-plate-shot alt="The plate, from the workshop camera" title="Click to refresh">
+        <label class="prow prow--bool">
+          <span class="lbl">The plate is clear — I have looked</span>
+          <input type="checkbox" class="check" data-confirm-clear>
+          <span class="box" aria-hidden="true"></span>
+        </label>
+        <p class="help">A start is refused without this. The frame is live; click it to refresh.</p>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn" data-confirm-cancel>Cancel</button>
+        <button type="button" class="btn btn--heat" data-confirm-go>Send <span data-confirm-go-name></span></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<noscript><p class="prose noscript">Bluesheet builds its geometry in the browser, so it needs JavaScript.</p></noscript>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

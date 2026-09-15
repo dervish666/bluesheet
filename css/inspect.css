@@ -1,0 +1,52 @@
+/* The inspector — drop an STL, read the truth about it.
+   Everything here sits on the classes in bluesheet.css (.overlay .sheet .facts
+   .warn .btn .prose); this file only adds the drop-zone state, the ok tone for
+   a finding that is simply true, and the before/after table. */
+
+/* The viewer as a drop zone: a dashed hairline in the drawn-line colour while a
+   file is over it. No heat — dropping a file is not the print path. */
+.stage.is-dragover::after {
+  content: 'Drop the STL to inspect it';
+  position: absolute; inset: 10px;
+  border: 1px dashed var(--line);
+  background: var(--line-wash);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--plate); font-weight: 600; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--ink);
+  pointer-events: none;
+  z-index: 6;
+}
+
+.inspect-sub { font-size: 11px; color: var(--ink-dim); margin-left: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40%; }
+.inspect-busy { font-size: 11px; color: var(--ink-dim); margin: 0 0 10px; }
+.inspect-busy[hidden] { display: none; }
+
+/* A finding that is simply true: no colour, bright ink. "Good" is the absence
+   of a warning, never a green. */
+.warn--ok { border-left-color: var(--line); color: var(--ink); background: transparent; }
+.warn--ok .warn-code { color: var(--ink-dim); }
+
+.inspect-prov, .inspect-repair {
+  border-top: var(--hair) solid var(--line-faint);
+  padding-top: 12px; margin-top: 4px; margin-bottom: 12px;
+}
+.inspect-prov .actions, .inspect-actions { flex-wrap: wrap; }
+.inspect-actions { margin-top: 12px; border-top: var(--hair) solid var(--line-faint); padding-top: 12px; }
+
+/* before / after */
+.inspect-diff { display: grid; grid-template-columns: 1fr auto auto; column-gap: 16px; row-gap: 0; margin: 6px 0 12px; }
+.inspect-diff-row { display: contents; }
+.inspect-diff-row > span { padding: 4px 0; border-bottom: var(--hair) solid var(--line-faint); font-size: 12px; }
+.inspect-diff-row > .num { text-align: right; }
+.inspect-diff-head > span { color: var(--ink-dim); }
+.inspect-diff-row.is-changed > .num:last-child { color: var(--ink); font-weight: 600; }
+.inspect-diff-row:not(.is-changed) > .num { color: var(--ink-dim); }
+
+.inspect-repair h4 { margin: 8px 0 4px; }
+.inspect-did { margin: 0 0 8px; padding-left: 16px; }
+.inspect-did li { margin: 0 0 4px; }
+.inspect-couldnot li { color: var(--ink); }
+
+@media (max-width: 899px) {
+  .inspect-sub { display: none; }
+}
