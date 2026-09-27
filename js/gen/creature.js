@@ -127,9 +127,9 @@ export const PROFILES = {
   flat:    () => 1,
   ribbed:  (u) => (1 - 0.30 * u) * (1 + 0.10 * Math.sin(TAU * 6 * u)),
   // A capybara: full at the head end so the head sits on the body instead of
-  // on a neck (the barrel pinches to 0.70 there), fattest a third of the way
-  // back, rounding to 0.95 at the rump.
-  loaf:    (u) => 0.95 + 0.17 * Math.sin(Math.PI * (0.2 + 0.8 * clamp(u, 0, 1))),
+  // on a neck (the barrel pinches to 0.70 there), humped a third of the way
+  // back (1.14), falling to 0.88 at the rump.
+  loaf:    (u) => 0.88 + 0.26 * Math.sin(Math.PI * (0.2 + 0.8 * clamp(u, 0, 1))),
 };
 
 /** The spine and its stations — one station per segment boundary. */
@@ -371,6 +371,34 @@ export function jointRCap(kind, r, segLen, clearance, swingDeg) {
 
 /** One mesh per segment, already jointed. Each is a separate solid. Exported
  *  for the tests. */
+/**
+ * The joints where nested seams will not fit and `segmentsOf` falls back to
+ * an open seam, with the segment length each would need: the same test it
+ * makes (a shell wider than the body, clear of this segment's own rear
+ * socket and wall). [] when every joint nests or seams are open.
+ */
+export function nestedFallbacks(p, ctx = { segFactor: 1 }) {
+  p = asBuilt(p);
+  if (p.seams !== 'nested' || p.joint === 'hinge') return [];
+  const { stations } = spineOf(p, ctx), count = stations.length - 1;
+  const c = num(p.clearance, fit('free')), swingDeg = num(p.swing, 25);
+  const geo = [], out = [];
+  for (let i = 0; i < count - 1; i++) {
+    const here = stations[i + 1], spacing = run(stations[i], here);
+    const cap = jointRCap('ball', here.r, spacing, c, swingDeg);
+    geo.push(ballGeometry({ r: Math.min(here.r, cap), clearance: c, swingDeg }));
+  }
+  for (let i = 0; i < count - 1; i++) {
+    const g = geo[i], here = stations[i + 1], spacing = run(stations[i], here);
+    const need = i > 0 ? geo[i - 1].ballR + geo[i - 1].c + geo[i - 1].wall : 0;
+    const Rs = Math.min(1.15 * here.r, spacing - need - 0.5 - g.c);
+    if (!(Rs > 1.01 * here.r && Rs - (g.ballR + g.c) > 0.8)) {
+      out.push({ joint: i, needs: Math.max(1.01 * here.r, g.ballR + g.c + 0.8) + 0.01 + need + 0.5 + g.c });
+    }
+  }
+  return out;
+}
+
 export function segmentsOf(p, ctx) {
   p = asBuilt(p);
   const { stations } = spineOf(p, ctx);
@@ -745,13 +773,15 @@ export const HEAD_LOFTS = {
     ],
   },
   capybara: {
-    keys: [[0], [0.45, 1.25, 1, 1.2, 3], [1.3, 1.3, 1, 1.28, 3.4],
-           [2.1, 1.14, 1, 1.18, 3.6], [2.5, 1.04, 1, 1.1, 3.4]],
-    nose: 0.45, anchor: 1,
+    // Rounded, as the flexi capybaras are: no taller than the back, a soft
+    // superellipse, the nose curving down towards the chin.
+    keys: [[0], [0.4, 1.0, 1, 1.02, 2.5], [1.05, 0.96, 1, 1.0, 2.7],
+           [1.6, 0.84, 1, 0.9, 2.7], [1.9, 0.74, 1, 0.8, 2.5]],
+    nose: 0.5, anchor: 0.6,
     bumps: [
-      [0.6, 44, 0.4, 0.14, 11],               // ears
-      [1.3, 62, 0.16, 0.1, 9],                // eyes
-      [2.65, 28, 0.07, 0.08, 10],             // nostrils
+      [0.5, 44, 0.34, 0.14, 11],              // ears
+      [1.05, 62, 0.16, 0.1, 9],               // eyes
+      [2.2, 28, 0.06, 0.08, 10],              // nostrils
     ],
   },
 };
@@ -810,13 +840,21 @@ export function headRings(kind, st, fwd, ctx, m, R = st.r) {
     bot = Math.min(bot, k0);                        // the plate: the neck's axis is k0 up
     // THE NOSE: a quarter ellipse, the section shrinking about a point
     // `anchor` of the way down from its centre to its underside.
-    let f = 1, cx = 0;
+    // Measured from the axis while the axis is inside the section. A nose that
+    // sinks wholly below it (the capybara's) left its upper half a negative
+    // height, and NaN points at fine quality coiled a 108 mm animal; those
+    // rings are measured from the nose's own centre instead. Only those: moving
+    // every nose re-rolled the dragon's jaw split to a bad edge.
+    let f = 1, cx = 0, oc = 0;
     if (z > zEnd) {
       const u = (z - zEnd) / L.nose;
       f = Math.sqrt(Math.max(0, 1 - u * u));
       const mid = (top - bot) / 2;                  // the section's centre, up of the axis
       cx = lerp(mid, -bot, L.anchor);
-      top = cx + (top - cx) * f; bot = -(cx + (-bot - cx) * f); w *= f;
+      const t2 = cx + (top - cx) * f, b2 = -(cx + (-bot - cx) * f);
+      if (t2 > 0.02 && b2 > 0.02) { top = t2; bot = b2; }
+      else { oc = cx; top = (top - cx) * f; bot = (bot + cx) * f; }
+      w *= f;
     }
     if (j === count || f < 1e-6) { const c = z > zEnd ? cx : 0; out.push({ p: at(zTip, c, 0), r: 0 }); break; }
     const pts = [];
@@ -828,7 +866,7 @@ export function headRings(kind, st, fwd, ctx, m, R = st.r) {
       const ang = Math.atan2(sa, ca);
       let back = 0;
       if (ca > -0.2) { const bmp = headBump(L, z, ang); rho += bmp.r * f; back = bmp.back; }
-      pts.push([rho * ca, rho * sa, z - back]);
+      pts.push([oc + rho * ca, rho * sa, z - back]);
     }
     out.push({ pts: pts.map(([x, y, zz]) => at(zz, x, y)) });
   }
@@ -908,6 +946,10 @@ export function taperRings(last, ctx) {
  * dragon, lying on the bed where it prints without support.
  */
 export const TAIL_LOFTS = {
+  // No tail at all (a capybara): the body closes in a dome that falls to the
+  // plate, as a capybara's rump does. A quarter ellipse 0.75 r long.
+  rump:  [[0.257, 0.940, 0.940], [0.482, 0.766, 0.766], [0.614, 0.574, 0.574], [0.705, 0.342, 0.342], [0.739, 0.174, 0.174], [0.75, 0, 0]],
+
   whip:  [[0.3, 0.92, 0.92], [1.2, 0.62, 0.6], [2.2, 0.38, 0.36], [3.1, 0.22, 0.2], [3.8, 0.13, 0.12], [4.1, 0, 0]],
   spade: [[0.3, 0.88, 0.88], [1.0, 0.55, 0.52], [1.6, 0.36, 0.34], [1.9, 0.8, 0.32], [2.3, 1.5, 0.3],
           [2.75, 0.95, 0.26], [3.2, 0.35, 0.18], [3.45, 0, 0]],
@@ -1007,6 +1049,7 @@ export const TAILS = {
   spike: (st, p, ctx) => union(tubeThrough([st, ...spikeRings(st)], tubeFacets(ctx)), spikeBarbs(st, ctx)),
   whip:  (st, p, ctx) => tubeThrough([st, ...tailLoftRings('whip', st, tubeFacets(ctx))], tubeFacets(ctx)),
   spade: (st, p, ctx) => tubeThrough([st, ...tailLoftRings('spade', st, tubeFacets(ctx))], tubeFacets(ctx)),
+  rump:  (st, p, ctx) => tubeThrough([st, ...tailLoftRings('rump', st, tubeFacets(ctx))], tubeFacets(ctx)),
 
   fan: (st, p, ctx) => {
     const r = TAIL_R * st.r, { n } = partQ(ctx);
@@ -1218,7 +1261,8 @@ export const LIMBS = {
  * to the ankle, ending in a foot lofted from the shin down to a flat pad on the
  * plate. No boolean anywhere on the segment, so it can wear its crown too.
  *
- * Figures in units of bodyR. `toes` are [angle, length]: angle in degrees
+ * Figures in units of bodyR. `hip`, `up`, `reach` and `ankle` (see stub)
+ * default to the sprawled lizard leg. `toes` are [angle, length]: angle in degrees
  * from straight out towards the head (90 points forward), length from the
  * foot's centre. `pad` is the pad's radius between toes, `width` a toe's
  * half width in degrees.
@@ -1226,8 +1270,13 @@ export const LIMBS = {
 export const LEG_LOFTS = {
   clawed:  { toes: [[35, 0.55], [65, 0.65], [95, 0.55]], pad: 0.32, width: 11, thigh: 0.28, shin: 0.22 },
   splayed: { toes: [[-70, 0.5], [-25, 0.5], [15, 0.5], [55, 0.6], [95, 0.5]], pad: 0.3, width: 9, thigh: 0.26, shin: 0.2 },
-  // A capybara's: short and thick, a round pad with three blunt toes forward.
-  stub:    { toes: [[30, 0.44], [60, 0.46], [90, 0.44]], pad: 0.34, width: 16, thigh: 0.3, shin: 0.28 },
+  // A capybara's: a squat paw from low on the flank, heading down and out to a
+  // round pad on the plate, the way the flexi capybaras lie. Reach 0.25, not
+  // 0.1: on 20 mm slices the nearer paw touched the next slice (0.000 mm). `hip` is the
+  // hole's angle from up, `up` the thigh's heading (negative is down), `reach`
+  // the straight thigh and `ankle` the shin's foot above the pad, in bodyR.
+  stub:    { toes: [[-10, 0.34], [20, 0.36], [50, 0.34]], pad: 0.26, width: 16, thigh: 0.28, shin: 0.27,
+             hip: 105, up: -40, reach: 0.25, ankle: 0.15 },
 };
 
 const LEG_RING = 48;        // bracket and leg rings: a whole multiple of the tube's
@@ -1260,7 +1309,7 @@ export function legStretch(L, rings, j0, j1, a, next, zc, s0, R) {
     const d = mul(bb, side);
     // Centred 100 degrees round from up, just below the side: the hole starts
     // at 74, clear of the crown's lowest tooth (60 +- 13).
-    const ac = (side > 0 ? 100 : 260) * DEG;
+    const hip = L.hip ?? 100, ac = (side > 0 ? hip : 360 - hip) * DEG;
     const i0 = Math.round((ac - 26 * DEG) / step), i1 = Math.round((ac + 26 * DEG) / step);
     // The rim, in tubeThrough's order.
     const P = rings.map(q => q.pts), rim = [];
@@ -1276,13 +1325,18 @@ export function legStretch(L, rings, j0, j1, a, next, zc, s0, R) {
     // crossed on the inside of the corner (self-intersecting, 40 pairs). The
     // arc's radius is 1.2 x the thigh's, so no two ring planes meet inside
     // the tube.
-    const KNEE = 1.2 * L.thigh * R, L1 = 0.2 * R, up = 15 * DEG;
+    const KNEE = 1.2 * L.thigh * R, L1 = (L.reach ?? 0.2) * R, up = (L.up ?? 15) * DEG;
     const dirAt = th => add(mul(d, Math.cos(th)), mul(n, Math.sin(th)));
     const Pa = add(root, mul(dirAt(up), L1));
     const Cn = add(Pa, mul(d, KNEE * Math.sin(up)), mul(n, -KNEE * Math.cos(up)));   // the knee's centre
     const knee = th => add(Cn, mul(dirAt(th + Math.PI / 2), KNEE));          // on the arc, heading th
     const shinTop = knee(-Math.PI / 2);
-    const ankle = add(c, mul(n, -r + pad + 0.3 * R), mul(d, dot(shinTop.map((v, k) => v - c[k]), d)));
+    // The ankle never above the knee's end: on a thin body the squat stub's
+    // knee comes down lower than its ankle target and the shin ran upwards,
+    // folding its rings (276 crossing pairs).
+    const kneeEndH = dot(sub(shinTop, c), n) + r;
+    const ankleUp = Math.max(pad + 0.05 * R, Math.min(pad + (L.ankle ?? 0.3) * R, kneeEndH - 0.1 * R));
+    const ankle = add(c, mul(n, -r + ankleUp), mul(d, dot(shinTop.map((v, k) => v - c[k]), d)));
     const path = [];                                                 // [point, tangent]
     path.push([add(root, mul(dirAt(up), 0.6 * L1)), dirAt(up)], [Pa, dirAt(up)]);
     for (let q = 1; q <= 6; q++) { const th = up - (up + Math.PI / 2) * q / 6; path.push([knee(th), dirAt(th)]); }
@@ -1315,7 +1369,11 @@ export function legStretch(L, rings, j0, j1, a, next, zc, s0, R) {
       return { dir, rho: rho * R };
     };
     const flat = (h, star, rad) => ({ pts: fine.map(f => { const { dir, rho } = starR(f); return add(foot, mul(n, h), mul(dir, star ? rho : rad)); }) });
-    out.push(flat(pad + 0.12 * R, false, 1.15 * L.shin * R), flat(pad, true), flat(0, true));
+    // The first foot ring between the ankle and the pad, wherever the ankle
+    // is: fixed at pad + 0.12 R it sat level with the squat stub's ankle and
+    // the rings folded.
+    const ankleH = dot(sub(ankle, c), n) + r;
+    out.push(flat(pad + 0.45 * (ankleH - pad), false, 1.15 * L.shin * R), flat(pad, true), flat(0, true));
     return { s0: s0 + j0, s1: s0 + j1, i0, i1, rings: out, tip: foot };
   });
 }
@@ -1789,8 +1847,8 @@ export const SPECIES = [
   // MakerWorld capybaras are. At 6 x 20 nested welded its legs into the next
   // slice; 3 x 32, 4 x 26, 4 x 30 and 5 x 24 all measured clean, and 4 x 28
   // keeps the old length. Clean at every pose and quality, 0.2949 mm at normal.
-  { id: 'capybara', name: 'Capybara', joint: 'ball', segments: 4, segLen: 28, bodyR: 13,
-    profile: 'loaf', head: 'capybara', tail: 'nub', dorsal: 'none', seams: 'nested', section: 'block',
+  { id: 'capybara', name: 'Capybara', joint: 'ball', segments: 3, segLen: 26, bodyR: 16,
+    profile: 'loaf', head: 'capybara', tail: 'rump', dorsal: 'none', seams: 'nested',
     limbs: { pairs: 2, kind: 'stub', at: [0.22, 0.72] }, articulate: ['spine'] },
 
   { id: 'lizard', name: 'Lizard', joint: 'ball', segments: 12, segLen: 14, bodyR: 8,
@@ -1991,8 +2049,8 @@ export default {
     { key: 'tail', label: 'Tail', type: 'enum', def: 'taper', group: 'Anatomy',
       options: [{ v: 'taper', label: 'Taper' }, { v: 'spike', label: 'Spike' }, { v: 'fan', label: 'Fan' },
                 { v: 'sting', label: 'Sting' }, { v: 'nub', label: 'Nub' },
-                { v: 'whip', label: 'Whip' }, { v: 'spade', label: 'Spade' }],
-      help: 'Fused to the last segment. Taper, whip and spade grow out of it and lie on the plate.' },
+                { v: 'whip', label: 'Whip' }, { v: 'spade', label: 'Spade' }, { v: 'rump', label: 'None (rounded rump)' }],
+      help: 'Fused to the last segment. Taper, whip, spade and rump grow out of it and lie on the plate.' },
     { key: 'limbPairs', label: 'Leg pairs', type: 'int', min: 0, max: 8, step: 1, def: 0, group: 'Anatomy',
       help: 'Fused, not articulated. Small print-in-place limb joints weld shut more often than they work.' },
     { key: 'limbKind', label: 'Leg type', type: 'enum', def: 'stub', group: 'Anatomy',
@@ -2036,13 +2094,28 @@ export default {
     // pivot and the socket keep-out about ballR + c + wall forward. A segment
     // shorter than both leaves legs nowhere to root, and they weld into a
     // neighbour (capybara at 20 mm on a 13 mm body, measured).
-    if (p.seams === 'nested' && p.joint !== 'hinge' && num(p.limbPairs, 0) > 0) {
+    // Unioned legs only: a stitched kind (LEG_LOFTS) roots on the skin band,
+    // not between the joints' keep-outs, and its builds are measured instead.
+    if (p.seams === 'nested' && p.joint !== 'hinge' && num(p.limbPairs, 0) > 0 && !LEG_LOFTS[p.limbKind]) {
       const R = num(p.bodyR, 9), g = ballGeometry({ r: R, clearance: c, swingDeg: num(p.swing, 25) });
       const need = 1.15 * R + c + 0.4 + g.ballR + g.c + g.wall + 0.5 + 1;
       if (num(p.segLen, 14) < need) {
         out.push({ param: 'segLen', severity: 'warning',
           message: `Nested seams on ${num(p.segLen, 14)} mm segments leave legs no room to root between the joints; ` +
                    `they can weld into a neighbour. Lengthen the segments to at least ${need.toFixed(0)} mm, or use open seams.` });
+      }
+    }
+
+    // NESTED SEAMS THAT DO NOT FIT fall back to open ones joint by joint, and
+    // a stitched leg on that segment to the unioned part, silently: the 3 x 20
+    // capybara showed a 4 mm gap and a ball-ended leg at its second joint
+    // while every check passed. Name the joints and the length that fits.
+    if (p.seams === 'nested' && p.joint !== 'hinge') {
+      const short = nestedFallbacks(p);
+      if (short.length) {
+        out.push({ param: 'segLen', severity: 'warning',
+          message: `Nested seams do not fit at joint${short.length > 1 ? 's' : ''} ${short.map(j => j.joint + 1).join(', ')}, ` +
+                   `which fall back to open seams. Segments of at least ${Math.ceil(Math.max(...short.map(j => j.needs)))} mm nest every joint.` });
       }
     }
 

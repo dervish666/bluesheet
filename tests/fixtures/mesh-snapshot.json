@@ -978,6 +978,61 @@
    165
   ]
  },
+ "comic/<defaults>": {
+  "hash": "a4f58576d4be062c",
+  "tris": 1260,
+  "verts": 632,
+  "vol": 35128.627813,
+  "bbox": [
+   150,
+   114,
+   2.8
+  ]
+ },
+ "comic/preset:Comic panel": {
+  "hash": "a4f58576d4be062c",
+  "tris": 1260,
+  "verts": 632,
+  "vol": 35128.627813,
+  "bbox": [
+   150,
+   114,
+   2.8
+  ]
+ },
+ "comic/preset:Framed for the wall": {
+  "hash": "aa7f75d8a7a66971",
+  "tris": 1668,
+  "verts": 834,
+  "vol": 46996.732806,
+  "bbox": [
+   170,
+   130.869565,
+   2.8
+  ]
+ },
+ "comic/preset:Coaster square": {
+  "hash": "c9a6324166caccf8",
+  "tris": 1604,
+  "verts": 804,
+  "vol": 19003.513601,
+  "bbox": [
+   95,
+   95,
+   2.8
+  ]
+ },
+ "comic/preset:White on black": {
+  "hash": "fe8a88cb83cbf813",
+  "tris": 1144,
+  "verts": 574,
+  "vol": 22937.483353,
+  "bbox": [
+   120,
+   93,
+   2.2
+  ]
+ },
  "nameplate/<defaults>": {
   "hash": "edf669aef21a97eb",
   "tris": 1572,
@@ -1595,10 +1650,10 @@
   ]
  },
  "creature/preset:Dragon": {
-  "hash": "9c405e92689d0e59",
+  "hash": "ade490b4c7f34886",
   "tris": 53934,
   "verts": 26995,
-  "vol": 41155.382742,
+  "vol": 41152.519648,
   "bbox": [
    174.481772,
    174.481772,
@@ -1628,21 +1683,21 @@
   ]
  },
  "creature/preset:Capybara": {
-  "hash": "ed5bb30479a56849",
-  "tris": 16896,
-  "verts": 8456,
-  "vol": 94501.260922,
+  "hash": "b16a32556fe9abe7",
+  "tris": 11632,
+  "verts": 5822,
+  "vol": 96194.993673,
   "bbox": [
-   121.797481,
-   121.797481,
-   30.796399
+   99.710428,
+   99.710428,
+   36.434422
   ]
  },
  "creature/preset:Lizard": {
-  "hash": "3ab47a4d537e862c",
+  "hash": "59f97c7737f03c9e",
   "tris": 43480,
   "verts": 21764,
-  "vol": 26620.989967,
+  "vol": 26619.147393,
   "bbox": [
    148.9513,
    148.9513,

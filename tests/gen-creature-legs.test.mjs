@@ -77,7 +77,9 @@ for (const q of ['draft', 'normal', 'fine']) {
     check(`${kind}: the feet are on the plate`, Math.abs(b.min[2]) < 1e-6, `${b.min[2]}`);
     // A straight body along x: the legs stand out beside it, inside the pad.
     const y = Math.max(-b.min[1], b.max[1]);
-    check(`${kind}: the feet stand clear of the body`, y > 1.5 * R, `${(y / R).toFixed(2)} bodyR`);
+    // The squat stub's paw sits closer in by design (a flexi capybara's).
+    const clear = kind === 'stub' ? 1.3 : 1.5;
+    check(`${kind}: the feet stand clear of the body`, y > clear * R, `${(y / R).toFixed(2)} bodyR`);
     check(`${kind}: and inside the fitter's sideways pad`, y < REACH_PAST_SPINE * R, `${(y / R).toFixed(2)} bodyR`);
     // The foot on the plate: on one side, the points at z = 0 about their
     // own centre (the foot's fan centre is one of them). The toes reach well

@@ -6,7 +6,7 @@ import { ctx, defaults, asMesh } from './lib/genconform.mjs';
 import { isSolid, topology } from './lib/meshcheck.mjs';
 import { shellCount } from './lib/gapcheck.mjs';
 import { Mesh } from '../js/kernel/mesh.js';
-import gen, { HEAD_LOFTS, headRings, tubeThrough, tubeFacets, segmentsOf, fitToBed, speciesCarries } from '../js/gen/creature.js';
+import gen, { HEAD_LOFTS, headRings, tubeThrough, tubeFacets, segmentsOf, spineOf, fitToBed, speciesCarries } from '../js/gen/creature.js';
 
 suite('gen creature heads');
 
@@ -59,7 +59,12 @@ for (const q of ['draft', 'normal', 'fine']) {
     // The head grows along -x from station 0 on a straight body.
     near(`${head}: reaches its loft's length ahead of the neck`, bare.min[0] - b.min[0], len, 0.02 * R);
     check(`${head}: stands on the plate, not lifted and not under it`, Math.abs(b.min[2]) < 1e-6, `${b.min[2]}`);
-    check(`${head}: wider than the body`, b.size[1] > 1.15 * bare.size[1], `${b.size[1].toFixed(1)} vs ${bare.size[1].toFixed(1)} mm`);
+    // The dragon's and lizard's heads are wider than the body; the capybara's
+    // is the body's own width, so head and loaf read as one animal (Sam's
+    // references, 2026-09-27).
+    const wider = head === 'capybara' ? 0.97 : 1.15;
+    check(`${head}: ${head === 'capybara' ? 'as wide as' : 'wider than'} the body`, b.size[1] > wider * bare.size[1],
+      `${b.size[1].toFixed(1)} vs ${bare.size[1].toFixed(1)} mm`);
   }
 
   // The features are there: at each bump's own z and angle the ring stands
@@ -88,6 +93,22 @@ for (const q of ['draft', 'normal', 'fine']) {
   const st = here(D.bodyR);
   const behind = Math.min(...headRings('dragon', st, st.t, C, 48, D.bodyR).filter(r => r.pts).flatMap(r => r.pts.map(q => q[0])));
   check('dragon: the horn tips reach back over the neck', behind < -0.2 * D.bodyR, `${behind.toFixed(2)} mm`);
+}
+
+// ---------------------------------------------------------------------------
+// Every ring point finite, every head, every quality, on every species' own
+// neck. The capybara's nose sinks below the axis near its tip; measured from
+// the axis its upper half went negative and NaN points reached the fitter,
+// which coiled the animal at fine quality.
+// ---------------------------------------------------------------------------
+for (const q of ['draft', 'normal', 'fine']) {
+  for (const head of LOFTED) {
+    const p = { ...D, species: head, ...speciesCarries(head) };
+    const st = spineOf(p, ctx(q)).stations[0];
+    const pts = headRings(head, st, st.t.map(v => -v), ctx(q), 48, p.bodyR).flatMap(r => r.pts || [r.p]);
+    check(`${head}, ${q}: every head point is finite`, pts.every(v => v.every(Number.isFinite)),
+      `${pts.filter(v => !v.every(Number.isFinite)).length} of ${pts.length} not`);
+  }
 }
 
 // ---------------------------------------------------------------------------

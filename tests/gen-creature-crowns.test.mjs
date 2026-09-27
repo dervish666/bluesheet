@@ -132,7 +132,9 @@ for (const q of ['draft', 'normal', 'fine']) {
   check('FALSIFIER: open seams keep the body round', openRound.vertCount === openLow.vertCount &&
     Math.abs(openRound.volume() - openLow.volume()) < 1e-9);
   const by = Object.fromEntries(SPECIES.map(s => [s.id, s]));
-  check('dragon low, lizard flat, capybara block', by.dragon.section === 'low' && by.lizard.section === 'flat' && by.capybara.section === 'block');
+  // The capybara is round: a swollen section pinches at every joint, and on
+  // three fat slices that read as a caterpillar (Sam, 2026-09-27).
+  check('dragon low, lizard flat, capybara round', by.dragon.section === 'low' && by.lizard.section === 'flat' && !by.capybara.section);
 }
 
 done();

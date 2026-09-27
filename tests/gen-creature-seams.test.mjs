@@ -7,7 +7,7 @@ import { isSolid } from './lib/meshcheck.mjs';
 import { minShellGap, shellCount, jointGateHolds } from './lib/gapcheck.mjs';
 import { freeSwing } from './lib/swing.mjs';
 import { Mesh } from '../js/kernel/mesh.js';
-import gen, { segmentsOf, speciesCarries, gaugeSteps } from '../js/gen/creature.js';
+import gen, { segmentsOf, speciesCarries, gaugeSteps, nestedFallbacks } from '../js/gen/creature.js';
 
 suite('gen creature seams');
 
@@ -81,9 +81,19 @@ for (const q of ['draft', 'normal', 'fine']) {
   // Was a KNOWN LIMIT: at 6 x 20 on a 13 mm body the capybara's legs welded
   // nested. The row is 4 x 28 now (Task 20) and sits in the loop above; the
   // warning still fires for a body that short.
-  const short = { ...D, species: 'capybara', ...speciesCarries('capybara'), segments: 6, segLen: 20 };
-  check('validate() still warns about 20 mm nested segments on a 13 mm body',
+  const short = { ...D, species: 'capybara', ...speciesCarries('capybara'), segments: 6, segLen: 20, bodyR: 13, limbKind: 'fin' };
+  check('validate() still warns about 20 mm nested segments on a 13 mm body with unioned legs',
     gen.validate(short).some(v => v.param === 'segLen' && /Nested seams/.test(v.message)));
+
+  // A joint that cannot nest falls back to an open seam; validate() names it.
+  // The 3 x 20 capybara showed a 4 mm gap at its second joint unannounced.
+  for (const id of ['dragon', 'lizard', 'capybara']) {
+    check(`${id}: every joint of the shipped row nests`, nestedFallbacks({ ...D, species: id, ...speciesCarries(id) }).length === 0);
+  }
+  const capyAt = segLen => ({ ...D, species: 'capybara', ...speciesCarries('capybara'), segLen });
+  const says = p => gen.validate(p).some(v => v.param === 'segLen' && /do not fit at joint/.test(v.message));
+  check('validate() warns when a nested joint falls back (capybara at 24 mm)', says(capyAt(24)) && nestedFallbacks(capyAt(24))[0]?.joint === 1);
+  check('FALSIFIER: and not at the 26 mm it ships with', !says(capyAt(26)));
 
   // THE NESTED SPECIES BEND. The shells are concentric but faceted, so a
   // turned dome cuts into the gap by the facets' sag; the latitudes have a

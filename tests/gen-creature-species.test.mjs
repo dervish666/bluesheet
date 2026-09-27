@@ -37,11 +37,13 @@ const ANIMALS = SPECIES.filter(s => s.id !== 'gauge');
   // above about 0.75 a limb fouls the neighbouring ball sideways (ruling 48).
   // The plan wrote 16; it fused at 0.0003 mm. Pin the number so nobody
   // "restores" it from the plan without rediscovering why.
-  // Since Task 20 the capybara is four fat nested slices, 4 x 28: at 6 x 20
-  // nested welded its legs into the next slice, so do not go back there.
+  // The capybara is three fat nested slices on a 16 mm body (Sam's flexi
+  // references): 26 mm is the shortest slice whose second joint still nests
+  // (it carries the first joint's socket as well); at 20 it fell back to an
+  // open seam and a unioned leg without a word.
   const capy = SPECIES.find(s => s.id === 'capybara');
-  check('the capybara is 4 x 28 on nested seams — not 6 x 16 (fouls its legs) nor 6 x 20 (welds nested)',
-    capy.segments === 4 && capy.segLen === 28 && capy.seams === 'nested',
+  check('the capybara is 3 x 26 on a 16 mm body, nested — the shortest slice that nests both joints',
+    capy.segments === 3 && capy.segLen === 26 && capy.bodyR === 16 && capy.seams === 'nested',
     `${capy.segments} x ${capy.segLen}, ${capy.seams}, ratio ${(capy.bodyR / capy.segLen).toFixed(2)}`);
   // A cheap guard on the same limit, so a future row fails here in
   // milliseconds rather than in a gap measurement. 0.80, not the 0.75 a
