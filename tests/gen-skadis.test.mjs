@@ -604,7 +604,7 @@ function clusterBy(pts, ax, gap) {
   }
 
   // The tabs must be where the BOARD's slots are, or the gauge cannot be hung
-  // at all — which is how the first one failed in real use: printed
+  // at all — which is how the first one failed in Sam's hands: printed
   // perfectly, 11 mm apart, and not one tab met a slot. Slots are a 20 mm
   // checkerboard: every tab on a half-pitch lattice point, and the parity of
   // (column + row) the same for all of them.

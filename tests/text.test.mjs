@@ -698,14 +698,14 @@ throws('codePoint: an empty string is refused', () => syn.glyphIndex(''), 'code 
     `left min x ${left.bbox.min[0].toFixed(4)}, right max x ${right.bbox.max[0].toFixed(4)}`);
 }
 {
-  const wide = layoutText(quick, 'Wide Nameplate', { size: 12 });
-  const fitted = layoutText(quick, 'Wide Nameplate', { size: 12, maxWidth: 60 });
+  const wide = layoutText(quick, 'Sam Fitzgerald', { size: 12 });
+  const fitted = layoutText(quick, 'Sam Fitzgerald', { size: 12, maxWidth: 60 });
   near('maxWidth: the run is scaled to exactly the limit', fitted.width, 60, 1e-9);
   near('maxWidth: reported fit is the ratio applied', fitted.fit, 60 / wide.width, 1e-12);
   near('maxWidth: cap height shrinks with the run', fitted.capHeight, 12 * fitted.fit, 1e-9);
   nearPct('maxWidth: the ink shrinks by the same ratio',
     fitted.bbox.size[1], wide.bbox.size[1] * fitted.fit, 0.001);
-  const roomy = layoutText(quick, 'Short', { size: 12, maxWidth: 500 });
+  const roomy = layoutText(quick, 'Sam', { size: 12, maxWidth: 500 });
   check('maxWidth: text that already fits is left alone', roomy.fit === 1);
 }
 {

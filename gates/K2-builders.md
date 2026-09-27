@@ -9,12 +9,12 @@ lean on. This module decides how good Bluesheet's objects can look.
   EVIDENCE: builders: 800/800 passed | RESULT: PASS
 
 - [x] G2: every export exercised
-  CHECK: node tests/coverage.mjs js/kernel/builders.js tests/builders.test.mjs 2>&1 | tail -2
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/coverage.mjs js/kernel/builders.js tests/builders.test.mjs 2>&1 | tail -2
   EXPECT: missing: none
   EVIDENCE: COVERAGE: 26/26 exports covered | missing: none
 
 - [ ] G3: at least 80 checks — this is the widest module in the kernel
-  CHECK: node tests/builders.test.mjs 2>&1 | grep -c '^  ok '
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/builders.test.mjs 2>&1 | grep -c '^  ok '
   EXPECT: /^(8[0-9]|9[0-9]|[1-9][0-9][0-9]+)$/
   EVIDENCE: pending
 

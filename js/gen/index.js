@@ -10,13 +10,17 @@ export const GENERATOR_IDS = [
   'arm',
   'boxlid',
   'coaster',
+  'comic',
   'cookiecutter',
+  'creature',
   'cydmount',
   'datasculpt',
   'drawer',
   'gear',
   'gridfinity',
   'hooks',
+  'lampfitter',
+  'lampshade',
   'lithophane',
   'nameplate',
   'pcbcase',
@@ -38,7 +42,7 @@ export const GENERATOR_IDS = [
 // written makes the loader report failures and turns a "not built yet" into a
 // red integration gate for the wrong reason.
 
-export const CATEGORY_ORDER = ['Storage', 'Utility', 'Mechanism', 'Decor', 'Data', 'Kitchen', 'Toys'];
+export const CATEGORY_ORDER = ['Storage', 'Utility', 'Mechanism', 'Lighting', 'Decor', 'Data', 'Kitchen', 'Toys'];
 
 const REQUIRED = ['id', 'name', 'category', 'blurb', 'params', 'build'];
 

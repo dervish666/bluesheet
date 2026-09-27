@@ -463,7 +463,7 @@ function solve(p, ctx = {}) {
   // A friction lid's skirt drops INSIDE the walls, and a divider that runs to
   // the rim is exactly where the skirt wants to be. So with a friction closure
   // the divider grid stops a lip's height plus three layers below the rim; the
-  // cells are that much shallower and the lid seats. (Reported 2026-09-03, on a
+  // cells are that much shallower and the lid seats. (Sam, 2026-09-03, on a
   // 176 mm screw organiser: "the lid won't fit as the dividers will stop the
   // friction fit". They would have.) A clamshell's halves meet rim to rim and a
   // screw top has no grid, so neither needs it.

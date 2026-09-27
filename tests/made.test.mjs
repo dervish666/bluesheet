@@ -1,6 +1,6 @@
 // The Made panel, driven in real Chrome against its own server.
 //
-//   node tests/made.test.mjs
+//   cd ~/explorer/projects/bluesheet && node tests/made.test.mjs
 //
 // This suite does not touch the service on :8132. It starts a second server.py
 // on an ephemeral port with BLUESHEET_MADE_DIR pointed at a scratch directory,

@@ -24,11 +24,11 @@ Target: about an hour of printing, so it finishes with room to spare.
 
 **PLA, AMS slot 2 (white) or slot 4 (purple).** Not PETG: this laptop has a
 documented PETG stringing baseline, and nobody is awake to rescue a print that
-strings. Confirmed at 21:09 that TPU is not loaded and the rest are.
+strings. Sam confirmed at 21:09 that TPU is not loaded and the rest are.
 
 ## Steps
 
-    cd bluesheet
+    cd ~/explorer/projects/bluesheet
     node tools/bluesheet.mjs list                      # what actually exists
     node tools/bluesheet.mjs plate docs/first-plate.json -o /tmp/first.stl --gap 4
 
@@ -45,7 +45,7 @@ Then, before pressing anything:
 - [ ] The filament in the slice matches the filament in the AMS slot.
 - [ ] `print-watch` is armed **before** the print starts, not after.
 
-Upload with the printer service's `sdcard.py`, then start via
+Upload with `~/explorer/projects/gladys/sdcard.py`, then start via
 `POST :8128/api/sd/print` with `confirm: true`, the file name, and the AMS
 mapping. Note the printer hangs the TLS shutdown after a successful `STOR`, so
 ftplib raises `TimeoutError` for a transfer that worked — verify by re-listing
@@ -53,7 +53,8 @@ and comparing byte counts, and never trust `storbinary`'s return either way.
 
 ## Authority
 
-The print was authorised by the machine's owner, overnight and unattended. That
-covers the stop authority as well: stop a print only if *visually certain* it
-has failed — nothing on a suspicion. Anything short of certain is a message,
-not an intervention.
+Sam: "I'm happy for you to print something, I've left the printer ready for you",
+then "I'm going to bed. You are in charge." I am taking that as covering the
+stop authority as well: stop a print only if I am *visually certain* it has
+failed, same bar as previous nights, nothing on a suspicion. Anything short of
+certain is a Telegram message, not an intervention.

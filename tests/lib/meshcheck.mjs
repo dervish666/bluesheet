@@ -7,7 +7,8 @@ import { Mesh } from '../../js/kernel/mesh.js';
 // Topology check that does not depend on validate.js — the two must agree, which
 // is itself a cross-check between two independently written implementations.
 export function topology(mesh) {
-  const w = mesh.weld(1e-5);
+  // Distance, not rounding: see Mesh#weld. validate.js welds the same way.
+  const w = mesh.weld(1e-5, { near: true });
   const edges = new Map();
   let degenerate = 0;
   for (let t = 0; t < w.triCount; t++) {

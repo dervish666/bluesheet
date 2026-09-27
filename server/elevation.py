@@ -35,7 +35,7 @@ MAX_ZOOM = 14
 MIN_ZOOM = 2
 MAX_TILES = 16          # one request may not fetch more than this
 MAX_GRID = 512          # samples per side
-USER_AGENT = "Bluesheet/1.0 (parametric printable-object foundry)"
+USER_AGENT = "Bluesheet/1.0 (claudespace; parametric printable-object foundry)"
 
 _tile_cache = util.Lru(24)
 _fetch_lock = threading.Lock()
@@ -323,7 +323,7 @@ def heightfield(lat, lon, span_km=2.0, samples=128, zoom=None):
 # by query, so a place looked up once costs the service nothing again.
 
 GEOCODE_URL = "https://nominatim.openstreetmap.org/search"
-GEOCODE_CONTACT = os.environ.get("BLUESHEET_GEOCODE_CONTACT", "bluesheet")
+GEOCODE_CONTACT = os.environ.get("BLUESHEET_GEOCODE_CONTACT", "claudespace")
 GEOCODE_CACHE = os.path.join(util.STATE_DIR, "geocode.json")
 GEOCODE_MAX = 6
 GEOCODE_BIAS = os.environ.get("BLUESHEET_GEOCODE_VIEWBOX", "-11.0,61.0,2.0,49.0")   # west,north,east,south

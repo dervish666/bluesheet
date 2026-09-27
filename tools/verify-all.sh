@@ -27,5 +27,17 @@ if [ "$QUICK" = "0" ]; then
   timeout 400 node tests/browser.test.mjs 2>&1 | tail -4 || fail=1
 fi
 
+line "gates"
+for g in GATES.md gates/*.md; do
+  printf '%-26s %s\n' "$(basename "$g")" "$(node ~/.claude/skills/unlazy/scripts/gate-check.mjs --status "$g" 2>&1 | tail -1)"
+done
+
+line "fleet"
+printf 'healthcheck %s · network %s · dashboard %s · bluesheet.local %s\n' \
+  "$(grep -c '8132:bluesheet' ~/explorer/tools/healthcheck.sh)" \
+  "$(grep -c "8132:'Bluesheet'" ~/explorer/projects/network/index.html)" \
+  "$(grep -c 'port:8132' ~/explorer/projects/dashboard/index.html)" \
+  "$(curl -s -m 5 -H 'Host: bluesheet.local' http://127.0.0.1/api/health | grep -o '"ok": *true' || echo MISSING)"
+
 printf '\n\033[1mVERIFY: %s\033[0m\n' "$([ $fail = 0 ] && echo PASS || echo FAIL)"
 exit $fail

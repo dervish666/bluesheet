@@ -23,7 +23,7 @@ slices them together, so four bins are one print.
       plate, see it appear in the viewport at its packed position, add a second
       object of a different generator, remove one, change a quantity, and clear
       the plate. Driven through real clicks in tests/plate.test.mjs.
-  CHECK: node tests/plate.test.mjs 2>&1 | tail -3
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/plate.test.mjs 2>&1 | tail -3
   EXPECT: RESULT: PASS
   EVIDENCE: pending
 

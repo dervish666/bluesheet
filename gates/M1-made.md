@@ -58,7 +58,7 @@ and the photograph side by side is the whole point.
       photo when there is one, the generator and parameters, the estimate against
       the actual, and a "make another" button that reloads those exact parameters
       into the editor. Driven and asserted in the browser.
-  CHECK: node tests/made.test.mjs 2>&1 | tail -3
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/made.test.mjs 2>&1 | tail -3
   EXPECT: RESULT: PASS
   EVIDENCE (2026-09-03): `js/ui/made.js`; `node tests/made.test.mjs` 45/45 against a
     private server on an ephemeral port seeded with all six states; "Make
@@ -66,6 +66,6 @@ and the photograph side by side is the whole point.
     fails if the refresh timer survives close.
 
 - [x] G6: at least 20 checks across the two suites
-  CHECK: node tests/made.test.mjs 2>&1 | grep -c '^  ok '
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/made.test.mjs 2>&1 | grep -c '^  ok '
   EXPECT: /^([2-9][0-9]|[1-9][0-9][0-9]+)$/
   EVIDENCE (2026-09-03): 57 (test_made.py) + 45 (made.test.mjs) = 102.

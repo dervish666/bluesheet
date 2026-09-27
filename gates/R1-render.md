@@ -18,7 +18,7 @@ pixels back. 32 checks, 0 failures.
 
 - [x] G1: pure math is separated and tested — camera, matrices, ray picking and
       the arcball live in js/render/camera.js with no DOM, tested headlessly
-  CHECK: node tests/render-math.test.mjs 2>&1 | tail -3
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/render-math.test.mjs 2>&1 | tail -3
   EXPECT: RESULT: PASS
   EVIDENCE: `render math: 226/226 passed` / `RESULT: PASS`
       camera.js imports nothing and touches no DOM; the orbit is a turntable
@@ -28,7 +28,7 @@ pixels back. 32 checks, 0 failures.
       separate means setRoll(0) is exactly level again after any number of drags.
 
 - [x] G2: at least 25 checks in the math suite
-  CHECK: node tests/render-math.test.mjs 2>&1 | grep -c '^  ok '
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/render-math.test.mjs 2>&1 | grep -c '^  ok '
   EXPECT: /^([2-9][0-9]|[1-9][0-9][0-9]+)$/
   EVIDENCE: `226`
       Where a round trip could hide a sign error the suite asserts the absolute
@@ -40,7 +40,7 @@ pixels back. 32 checks, 0 failures.
 
 - [x] G3: every render module imports cleanly in Node (no DOM at module scope) —
       this is what lets the rest of the kernel stay testable
-  CHECK: for f in js/render/*.js; do node -e "import('./$f').then(()=>console.log('ok $f')).catch(e=>{console.log('FAIL '+'$f'+': '+e.message);process.exit(1)})" || exit 1; done
+  CHECK: cd /home/claude/explorer/projects/bluesheet && for f in js/render/*.js; do node -e "import('./$f').then(()=>console.log('ok $f')).catch(e=>{console.log('FAIL '+'$f'+': '+e.message);process.exit(1)})" || exit 1; done
   EXPECT: /ok js\/render\/viewer.js/
   EVIDENCE: `ok js/render/camera.js` `ok js/render/gcode.js` `ok js/render/geometry.js`
       `ok js/render/glutil.js` `ok js/render/plate.js` `ok js/render/shaders.js`
@@ -110,7 +110,7 @@ pixels back. 32 checks, 0 failures.
 - [x] G5: it does not burn the laptop — rendering is on-demand (draw only when
       something changed or an interaction is live), and it stops entirely when
       the tab is hidden via the Page Visibility API
-  CHECK: grep -c "visibilitychange" js/render/*.js
+  CHECK: cd /home/claude/explorer/projects/bluesheet && grep -c "visibilitychange" js/render/*.js
   EXPECT: /[1-9]/
   EVIDENCE: `js/render/viewer.js:2` (the other six modules are 0 — they own no
       events). Proven behaviourally rather than by grep:

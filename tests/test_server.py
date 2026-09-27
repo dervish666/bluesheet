@@ -29,7 +29,7 @@ sys.path.insert(0, ROOT)
 # "cube20 / testjob00000001" job in the real log (it did, on 2026-09-03).
 os.environ.setdefault("BLUESHEET_MADE_DIR", tempfile.mkdtemp(prefix="bluesheet-test-made-"))
 
-from server import elevation, fonts, gcode, library, printer, slicer, stlio, util  # noqa: E402
+from server import bambu, elevation, fonts, gcode, library, printer, slicer, stlio, util  # noqa: E402
 
 # server.py shares its name with the server/ package, and the package wins the
 # import — so the entry point is loaded by path.
@@ -791,10 +791,107 @@ def test_elevation_and_fonts():
         check(f"{font['id']} url is under assets", font["url"].startswith("/assets/fonts/"))
 
 
+# ---------------------------------------------------------------- bambu hand-off
+
+def _tiny_3mf(extra=b""):
+    import io
+    import zipfile
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("[Content_Types].xml", "<Types/>")
+        z.writestr("3D/3dmodel.model", "<model/>" + extra.decode("latin-1"))
+    return buf.getvalue()
+
+
+def test_bambu():
+    bambu.clear()
+    good = _tiny_3mf()
+    key, stem = bambu.put(good, "comic 905 / p3.3mf")
+    check("bambu id is 32 lowercase hex", bambu.is_id(key) and len(key) == 32, key)
+    check("bambu name is cleaned for a URL and a header", stem == "comic-905-p3", stem)
+    check("bambu entry round-trips", bambu.get(key)["data"] == good)
+    check("bambu two ids differ", bambu.put(good, "x")[0] != key)
+    for bad in ("../" + key, key + "\n", key.upper(), key[:-1], "", None, "a" * 33):
+        # is_id directly: get() alone cannot tell, since a dict lookup of a
+        # malformed key misses anyway (a permissive regex passed that version).
+        check(f"bambu refuses id {bad!r}", not bambu.is_id(bad) and bambu.get(bad) is None)
+    throws("bambu refuses bytes that are not a zip", lambda: bambu.put(b"hunter2" * 10, "x"), bambu.BambuError)
+    import io
+    import zipfile
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("notes.txt", "hunter2")
+    throws("bambu refuses a zip with no 3D/3dmodel.model", lambda: bambu.put(buf.getvalue(), "x"), bambu.BambuError)
+    throws("bambu refuses a project over the size cap",
+           lambda: bambu.put(good + b"\0" * (bambu.MAX_BYTES + 1), "x"), bambu.BambuError)
+    # Expiry and the count cap, on an injected clock.
+    bambu.clear()
+    old, _ = bambu.put(good, "old", now=1000.0)
+    check("bambu entry is there before its TTL", bambu.get(old, now=1000.0 + bambu.TTL - 1) is not None)
+    check("bambu entry is gone after its TTL", bambu.get(old, now=1000.0 + bambu.TTL + 1) is None)
+    bambu.clear()
+    first, _ = bambu.put(good, "first", now=5000.0)
+    for i in range(bambu.MAX_ENTRIES):
+        bambu.put(good, f"n{i}", now=5001.0 + i)
+    check("bambu store never holds more than MAX_ENTRIES", bambu.count() == bambu.MAX_ENTRIES, bambu.count())
+    check("bambu evicts the oldest first", bambu.get(first, now=5002.0) is None)
+    bambu.clear()
+
+    with Live() as live:
+        payload = {"name": "comic905-p3", "data": base64.b64encode(good).decode()}
+        status, body = live.request("POST", "/api/bambu", payload)
+        check("bambu POST 201", status == 201, (status, body))
+        url = body.get("url", "")
+        check("bambu POST returns a .3mf URL under /api/bambu/", url.startswith("/api/bambu/") and url.endswith("/comic905-p3.3mf"), url)
+        conn = http.client.HTTPConnection("127.0.0.1", live.port, timeout=30)
+        conn.request("GET", url)
+        r = conn.getresponse()
+        data = r.read()
+        conn.close()
+        check("bambu GET 200", r.status == 200, r.status)
+        check("bambu GET is model/3mf", r.getheader("Content-Type") == "model/3mf", r.getheader("Content-Type"))
+        check("bambu GET names a .3mf file", 'filename="comic905-p3.3mf"' in (r.getheader("Content-Disposition") or ""),
+              r.getheader("Content-Disposition"))
+        check("bambu GET is not cached", r.getheader("Cache-Control") == "no-store")
+        check("bambu GET returns the exact bytes", data == good, len(data))
+        key = url.split("/")[3]
+        status, _ = live.request("GET", f"/api/bambu/{key}")
+        check("bambu GET without the name works too", status == 200, status)
+        status, _ = live.request("GET", f"/api/bambu/{key}/project.stl")
+        check("bambu GET refuses a name that is not .3mf", status == 404, status)
+        status, _ = live.request("GET", "/api/bambu/" + "0" * 32 + "/x.3mf")
+        check("bambu GET of an unknown id is 404", status == 404, status)
+        for path in ("/api/bambu/..%2f..%2fserver.py", "/api/bambu/../server.py",
+                     f"/api/bambu/{key}/../../server.py", f"/api/bambu/{key}%00/x.3mf"):
+            status, raw = live.request("GET", path)
+            check(f"bambu GET refuses {path}", status in (400, 404) and b"import" not in (raw if isinstance(raw, bytes) else b""), status)
+
+        status, body = live.request("POST", "/api/bambu", {"name": "x", "data": "not base64!!"})
+        check("bambu POST refuses bad base64", status == 400, (status, body))
+        status, body = live.request("POST", "/api/bambu", {"name": "x", "data": base64.b64encode(b"hunter2").decode()})
+        check("bambu POST refuses a non-3mf", status == 400, (status, body))
+        status, body = live.request("POST", "/api/bambu", {"name": "x"})
+        check("bambu POST refuses a missing body", status == 400, (status, body))
+        status, _ = live.request("POST", "/api/bambu", payload, headers={"Origin": "http://evil.example"})
+        check("bambu POST refuses a cross-origin page", status == 403, status)
+        status, _ = live.request("POST", "/api/bambu", payload, ctype="text/plain")
+        check("bambu POST refuses a non-JSON body", status == 415, status)
+        conn = http.client.HTTPConnection("127.0.0.1", live.port, timeout=30)
+        conn.putrequest("POST", "/api/bambu")
+        conn.putheader("Content-Type", "application/json")
+        conn.putheader("Content-Length", str(entry.MAX_BAMBU_BODY + 1))
+        conn.endheaders()
+        r = conn.getresponse()
+        r.read()
+        conn.close()
+        check("bambu POST refuses a declared body over the cap before reading it", r.status == 413, r.status)
+    bambu.clear()
+
+
 def main():
     for test in (test_util, test_stl, test_static_allowlist, test_slicer_settings,
                  test_placement, test_gcode, test_verify, test_library, test_tokens, test_http,
-                 test_elevation_and_fonts):
+                 test_elevation_and_fonts, test_bambu):
         try:
             test()
         except Exception:

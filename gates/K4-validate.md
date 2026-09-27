@@ -4,17 +4,17 @@ Scope: the module that decides whether a generated solid is printable, and says
 why not in words a person can act on.
 
 - [x] G1: suite passes
-  CHECK: node tests/validate.test.mjs 2>&1 | tail -3
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/validate.test.mjs 2>&1 | tail -3
   EXPECT: RESULT: PASS
   EVIDENCE: validate: 240/240 passed / RESULT: PASS
 
 - [x] G2: every export exercised
-  CHECK: node tests/coverage.mjs js/kernel/validate.js tests/validate.test.mjs 2>&1 | tail -2
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/coverage.mjs js/kernel/validate.js tests/validate.test.mjs 2>&1 | tail -2
   EXPECT: missing: none
   EVIDENCE: COVERAGE: 18/18 exports covered / missing: none
 
 - [x] G3: at least 40 checks
-  CHECK: node tests/validate.test.mjs 2>&1 | grep -c '^  ok '
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/validate.test.mjs 2>&1 | grep -c '^  ok '
   EXPECT: /^([4-9][0-9]|[1-9][0-9][0-9]+)$/
   EVIDENCE: 240
 

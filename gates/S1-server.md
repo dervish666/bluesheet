@@ -7,13 +7,13 @@ printer, and keeping saved designs.
   CHECK: (fuser -k 8132/tcp 2>/dev/null; sleep 1; nohup python3 server.py > /tmp/bluesheet-gate.log 2>&1 & sleep 3; curl -s -m 5 http://127.0.0.1:8132/api/health)
   EXPECT: /"ok":\s*true/
   EVIDENCE: {"ok": true, "service": "bluesheet", "version": "1.0.0", "port": 8132, "host":
-    "<host>", "uptimeSec": 3.0, "python": "3.13.5", "slicer": {"orca": true,
+    "claudespace", "uptimeSec": 3.0, "python": "3.13.5", "slicer": {"orca": true,
     "profiles": true, "datadir": true, "machine": "Bambu Lab A1 mini 0.4 nozzle",
     "version": "2.4.2", ...}}
 
 - [x] G2: it is a ThreadingHTTPServer and survives a slow request — two curls
       issued together, one to a deliberately slow endpoint, both return
-  CHECK: grep -c ThreadingHTTPServer server.py
+  CHECK: cd /home/claude/explorer/projects/bluesheet && grep -c ThreadingHTTPServer server.py
   EXPECT: /[1-9]/
   EVIDENCE: 3
     Behaviour measured rather than inferred, in tests/slice_smoke.py: while a
@@ -24,7 +24,7 @@ printer, and keeping saved designs.
     [503, 503, 503, 503, 503, 200, 200, 200] (MAX_QUEUED = 3).
 
 - [x] G3: python unit tests pass
-  CHECK: python3 tests/test_server.py 2>&1 | tail -3
+  CHECK: cd /home/claude/explorer/projects/bluesheet && python3 tests/test_server.py 2>&1 | tail -3
   EXPECT: /OK|RESULT: PASS/
   EVIDENCE: 214/214 checks passed
             RESULT: PASS
@@ -35,7 +35,7 @@ printer, and keeping saved designs.
       and physically sane (a 20mm cube at 0.2mm is ~100 layers, minutes not
       seconds, grams not kilograms). Verified by re-reading the produced 3mf, not
       by trusting the exit code.
-  CHECK: python3 tests/slice_smoke.py 2>&1 | tail -5
+  CHECK: cd /home/claude/explorer/projects/bluesheet && python3 tests/slice_smoke.py 2>&1 | tail -5
   EXPECT: /SLICE OK/
   EVIDENCE: 38/38 checks passed
             20 mm cube · 100 layers · 17m 23s · 3.68 g · 0.20mm Standard @BBL A1M
@@ -65,7 +65,7 @@ printer, and keeping saved designs.
 - [x] G6: no static-file leak. The handler must not serve anything outside the
       project directory and must not serve config/secret files inside it. Proven
       with path-traversal attempts and a request for any *.env / *secret* file.
-  CHECK: python3 tests/security_probe.py 2>&1 | tail -4
+  CHECK: cd /home/claude/explorer/projects/bluesheet && python3 tests/security_probe.py 2>&1 | tail -4
   EXPECT: /SECURITY OK/
   EVIDENCE: 55/55 probes refused as they should be
             SECURITY OK

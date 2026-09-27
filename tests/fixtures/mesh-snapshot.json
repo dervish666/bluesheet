@@ -11,7 +11,7 @@
   ]
  },
  "boxlid/preset:Bolt tin": {
-  "hash": "3a0670dc1131ca9d",
+  "hash": "41bddb07b35892b0",
   "tris": 4510,
   "verts": 2289,
   "vol": 57095.896799,
@@ -88,7 +88,7 @@
   ]
  },
  "drawer/<defaults>": {
-  "hash": "9f190c9c893ec2a1",
+  "hash": "1c666ce357640197",
   "tris": 5012,
   "verts": 2508,
   "vol": 61071.433501,
@@ -99,7 +99,7 @@
   ]
  },
  "drawer/preset:Desk drawer, pens and scissors": {
-  "hash": "550b1594f873b461",
+  "hash": "e89c4eab904e8824",
   "tris": 4606,
   "verts": 2303,
   "vol": 110599.072886,
@@ -143,9 +143,9 @@
   ]
  },
  "drawer/preset:Fill a measured drawer": {
-  "hash": "1582ba909c321073",
-  "tris": 6952,
-  "verts": 3478,
+  "hash": "3f426c4c76aac795",
+  "tris": 6944,
+  "verts": 3474,
   "vol": 88989.973421,
   "bbox": [
    166.8,
@@ -274,6 +274,127 @@
    14
   ]
  },
+ "arm/<defaults>": {
+  "hash": "3bb567b37e62abde",
+  "tris": 26666,
+  "verts": 13313,
+  "vol": 113077.434885,
+  "bbox": [
+   150,
+   158,
+   91.701
+  ]
+ },
+ "arm/preset:CYD desk arm": {
+  "hash": "3bb567b37e62abde",
+  "tris": 26666,
+  "verts": 13313,
+  "vol": 113077.434885,
+  "bbox": [
+   150,
+   158,
+   91.701
+  ]
+ },
+ "arm/preset:Pan and tilt": {
+  "hash": "bc7fb6a9c438906e",
+  "tris": 36320,
+  "verts": 18138,
+  "vol": 124730.889438,
+  "bbox": [
+   166,
+   153,
+   92.2
+  ]
+ },
+ "arm/preset:Short and stiff": {
+  "hash": "a6af808d5aabd472",
+  "tris": 18906,
+  "verts": 9435,
+  "vol": 159921.256868,
+  "bbox": [
+   163.4,
+   136.756189,
+   96
+  ]
+ },
+ "arm/preset:Long reach, VESA 100": {
+  "hash": "0db261740cd68e81",
+  "tris": 20990,
+  "verts": 10477,
+  "vol": 211650.884047,
+  "bbox": [
+   166.2,
+   154,
+   120.101
+  ]
+ },
+ "arm/preset:Single arm, small pattern": {
+  "hash": "47a4ccd2b8800649",
+  "tris": 18260,
+  "verts": 9112,
+  "vol": 42186.146274,
+  "bbox": [
+   68.8,
+   167,
+   61
+  ]
+ },
+ "cydmount/<defaults>": {
+  "hash": "a9670f7ae8f05186",
+  "tris": 1512,
+  "verts": 758,
+  "vol": 32235.646118,
+  "bbox": [
+   96.8,
+   130.8,
+   24
+  ]
+ },
+ "cydmount/preset:Desk stand, 55°": {
+  "hash": "a9670f7ae8f05186",
+  "tris": 1512,
+  "verts": 758,
+  "vol": 32235.646118,
+  "bbox": [
+   96.8,
+   130.8,
+   24
+  ]
+ },
+ "cydmount/preset:Wall plate, keyholes": {
+  "hash": "104cc58951df23b4",
+  "tris": 2088,
+  "verts": 1040,
+  "vol": 19381.343699,
+  "bbox": [
+   96.8,
+   96.8,
+   6.7
+  ]
+ },
+ "cydmount/preset:VESA 75 arm plate": {
+  "hash": "1564fd663c9b3f1c",
+  "tris": 1936,
+  "verts": 960,
+  "vol": 22047.87078,
+  "bbox": [
+   98.8,
+   89,
+   7.3
+  ]
+ },
+ "cydmount/preset:Panel bezel": {
+  "hash": "4f08c3c57c771d21",
+  "tris": 1936,
+  "verts": 960,
+  "vol": 20673.540614,
+  "bbox": [
+   107.6,
+   71.6,
+   8.8
+  ]
+ },
  "hooks/<defaults>": {
   "hash": "9c6219f8f9aed1e0",
   "tris": 4930,
@@ -286,7 +407,7 @@
   ]
  },
  "hooks/preset:Coat hook, screwed": {
-  "hash": "b60b5b19db774795",
+  "hash": "71e86902e8e4484f",
   "tris": 7798,
   "verts": 3897,
   "vol": 15465.874696,
@@ -319,9 +440,9 @@
   ]
  },
  "hooks/preset:Shelf bracket, 100 × 80": {
-  "hash": "ba55608913cef8e6",
-  "tris": 12834,
-  "verts": 6415,
+  "hash": "de1f97f97e1f38a3",
+  "tris": 12828,
+  "verts": 6412,
   "vol": 35681.365037,
   "bbox": [
    80,
@@ -352,7 +473,7 @@
   ]
  },
  "hooks/preset:Bench wire spool": {
-  "hash": "d4204a22e21bd92a",
+  "hash": "d5864de347747956",
   "tris": 7822,
   "verts": 3891,
   "vol": 79679.686203,
@@ -360,6 +481,127 @@
    74,
    74,
    40
+  ]
+ },
+ "pcbcase/<defaults>": {
+  "hash": "ca18c7722d4e8269",
+  "tris": 5468,
+  "verts": 2704,
+  "vol": 36383.589975,
+  "bbox": [
+   92.8,
+   131.6,
+   21.6
+  ]
+ },
+ "pcbcase/preset:Raspberry Pi 4": {
+  "hash": "5f8466ad3f5f42ec",
+  "tris": 6706,
+  "verts": 3311,
+  "vol": 38941.848428,
+  "bbox": [
+   92.8,
+   131.6,
+   28.6
+  ]
+ },
+ "pcbcase/preset:Raspberry Pi 3 B+": {
+  "hash": "c5c053c89439711f",
+  "tris": 5944,
+  "verts": 2932,
+  "vol": 39064.848428,
+  "bbox": [
+   92.8,
+   131.6,
+   28.6
+  ]
+ },
+ "pcbcase/preset:Pi Zero, slim": {
+  "hash": "5ee8b04ac641096f",
+  "tris": 3636,
+  "verts": 1814,
+  "vol": 14507.97089,
+  "bbox": [
+   71.4,
+   76.8,
+   16.2
+  ]
+ },
+ "pcbcase/preset:ESP32 project box": {
+  "hash": "ebdd65aa8edbf73c",
+  "tris": 4434,
+  "verts": 2203,
+  "vol": 21068.64961,
+  "bbox": [
+   65.8,
+   81.6,
+   24.6
+  ]
+ },
+ "pcbcase/preset:Blank tray, no board": {
+  "hash": "e75d381a93926ae8",
+  "tris": 3704,
+  "verts": 1848,
+  "vol": 70695.099735,
+  "bbox": [
+   107,
+   158,
+   30
+  ]
+ },
+ "shelfclip/<defaults>": {
+  "hash": "756eb71fdaf71b05",
+  "tris": 1440,
+  "verts": 720,
+  "vol": 53371.100533,
+  "bbox": [
+   72,
+   130.9,
+   64.430108
+  ]
+ },
+ "shelfclip/preset:Hairbrush, 17.5 mm shelf, closed hole": {
+  "hash": "756eb71fdaf71b05",
+  "tris": 1440,
+  "verts": 720,
+  "vol": 53371.100533,
+  "bbox": [
+   72,
+   130.9,
+   64.430108
+  ]
+ },
+ "shelfclip/preset:Short — head above the shelf": {
+  "hash": "0874148a9cc5f832",
+  "tris": 1424,
+  "verts": 712,
+  "vol": 26279.599772,
+  "bbox": [
+   72,
+   25.9,
+   64.430108
+  ]
+ },
+ "shelfclip/preset:Thin 12 mm shelf, deep drop": {
+  "hash": "75aaee8166268404",
+  "tris": 1420,
+  "verts": 710,
+  "vol": 48051.725573,
+  "bbox": [
+   62,
+   155,
+   56.430108
+  ]
+ },
+ "shelfclip/preset:Open slot, wide — for a tool you grab often": {
+  "hash": "e22b603b03f1109e",
+  "tris": 1030,
+  "verts": 517,
+  "vol": 69300.388844,
+  "bbox": [
+   81,
+   92.2,
+   76.580645
   ]
  },
  "skadis/<defaults>": {
@@ -418,9 +660,9 @@
   ]
  },
  "skadis/preset:Fit gauge": {
-  "hash": "de6840ba3b5d0a98",
-  "tris": 6702,
-  "verts": 3323,
+  "hash": "8158a217244c7562",
+  "tris": 7146,
+  "verts": 3545,
   "vol": 26723.603363,
   "bbox": [
    67.5,
@@ -451,10 +693,10 @@
   ]
  },
  "stand/preset:Recipe tablet in the kitchen": {
-  "hash": "42ec1db68e69030d",
-  "tris": 1286,
-  "verts": 643,
-  "vol": 133608.661437,
+  "hash": "277c397cfdc95a48",
+  "tris": 1278,
+  "verts": 639,
+  "vol": 133612.022178,
   "bbox": [
    169.191668,
    111.87,
@@ -550,7 +792,7 @@
   ]
  },
  "gear/preset:Motor pinion, 5 mm D-shaft": {
-  "hash": "9ce37edaec12da8a",
+  "hash": "e11e5ccacfe974ed",
   "tris": 2556,
   "verts": 1276,
   "vol": 2465.181529,
@@ -602,6 +844,138 @@
    99.592921,
    86.25,
    10
+  ]
+ },
+ "lampfitter/<defaults>": {
+  "hash": "0ded69d5ff27653b",
+  "tris": 4324,
+  "verts": 2150,
+  "vol": 24615.0887,
+  "bbox": [
+   169.365541,
+   166.351648,
+   10
+  ]
+ },
+ "lampfitter/preset:Bore gauge, 39 to 44 in 1 mm": {
+  "hash": "0ded69d5ff27653b",
+  "tris": 4324,
+  "verts": 2150,
+  "vol": 24615.0887,
+  "bbox": [
+   169.365541,
+   166.351648,
+   10
+  ]
+ },
+ "lampfitter/preset:Fine gauge, half a millimetre either side": {
+  "hash": "7bf94472b30800f8",
+  "tris": 3528,
+  "verts": 1754,
+  "vol": 24503.168039,
+  "bbox": [
+   166.864142,
+   94.588003,
+   12
+  ]
+ },
+ "lampfitter/preset:Spider for a 120 mm opening": {
+  "hash": "c22493c1b91d1993",
+  "tris": 1268,
+  "verts": 628,
+  "vol": 12348.191801,
+  "bbox": [
+   120,
+   120,
+   3
+  ]
+ },
+ "lampfitter/preset:Spider for a 170 mm drum": {
+  "hash": "1304e32d18b44773",
+  "tris": 1572,
+  "verts": 778,
+  "vol": 29577.126758,
+  "bbox": [
+   169.993549,
+   169.996775,
+   3.6
+  ]
+ },
+ "lampshade/<defaults>": {
+  "hash": "ac8403c6b0b7b02a",
+  "tris": 45064,
+  "verts": 22532,
+  "vol": 76914.955858,
+  "bbox": [
+   170,
+   170,
+   150
+  ]
+ },
+ "lampshade/preset:Kitchen pendant, over the island": {
+  "hash": "9d780a999487ceec",
+  "tris": 40248,
+  "verts": 20124,
+  "vol": 67029.490709,
+  "bbox": [
+   170,
+   170,
+   130
+  ]
+ },
+ "lampshade/preset:Fluted coolie, wide and low": {
+  "hash": "590f2b3567e6c351",
+  "tris": 37248,
+  "verts": 18624,
+  "vol": 54820.796743,
+  "bbox": [
+   171.631735,
+   171.631735,
+   105
+  ]
+ },
+ "lampshade/preset:Hallway drum, straight sides": {
+  "hash": "748322ddd5256e3d",
+  "tris": 35552,
+  "verts": 17776,
+  "vol": 74643.323963,
+  "bbox": [
+   175,
+   175,
+   110
+  ]
+ },
+ "lampshade/preset:Faceted bedside, screws straight on": {
+  "hash": "b935d542497861e5",
+  "tris": 51520,
+  "verts": 25760,
+  "vol": 48286.1576,
+  "bbox": [
+   130,
+   130,
+   110
+  ]
+ },
+ "lampshade/preset:Ribbed dome, for a fat globe lamp": {
+  "hash": "65380cf603c176c1",
+  "tris": 76480,
+  "verts": 38240,
+  "vol": 95458.474663,
+  "bbox": [
+   164.984888,
+   164.984888,
+   150
+  ]
+ },
+ "lampshade/preset:Spiral shell, bring your own fitting": {
+  "hash": "9c99e683de4c341b",
+  "tris": 54528,
+  "verts": 27264,
+  "vol": 19070.837825,
+  "bbox": [
+   160,
+   160,
+   165
   ]
  },
  "nameplate/<defaults>": {
@@ -734,6 +1108,28 @@
    33.927724,
    91.126374,
    107
+  ]
+ },
+ "lithophane/preset:Birthday card": {
+  "hash": "b967f04e99717f29",
+  "tris": 180468,
+  "verts": 90236,
+  "vol": 51182.874805,
+  "bbox": [
+   104,
+   17.6,
+   154.285714
+  ]
+ },
+ "lithophane/preset:Engraved keepsake": {
+  "hash": "6b1c56ca291f35b0",
+  "tris": 167482,
+  "verts": 83741,
+  "vol": 38117.858512,
+  "bbox": [
+   116,
+   3.8,
+   128.941945
   ]
  },
  "lithophane/preset:Keyring pendant": {
@@ -1130,6 +1526,149 @@
    165,
    165,
    9.5
+  ]
+ },
+ "cookiecutter/<defaults>": {
+  "hash": "dd15b250d38a30d9",
+  "tris": 3684,
+  "verts": 1836,
+  "vol": 5635.695566,
+  "bbox": [
+   69.599979,
+   26.755846,
+   16.6
+  ]
+ },
+ "cookiecutter/preset:NOEL, lettered": {
+  "hash": "d9b31c8b2203b889",
+  "tris": 3288,
+  "verts": 1644,
+  "vol": 5946.81316,
+  "bbox": [
+   79.599979,
+   29.359622,
+   16.6
+  ]
+ },
+ "cookiecutter/preset:Star, from a path": {
+  "hash": "7981d76d1d454f25",
+  "tris": 460,
+  "verts": 230,
+  "vol": 9455.060114,
+  "bbox": [
+   91.959219,
+   89.288088,
+   20
+  ]
+ },
+ "cookiecutter/preset:Round, with a stamp": {
+  "hash": "268bb9335b0a210b",
+  "tris": 3496,
+  "verts": 1756,
+  "vol": 9179.087473,
+  "bbox": [
+   147.326465,
+   74.597422,
+   15.6
+  ]
+ },
+ "cookiecutter/preset:Single initial, deep": {
+  "hash": "3cef7825d0d433c9",
+  "tris": 1200,
+  "verts": 602,
+  "vol": 13778.20598,
+  "bbox": [
+   56.807171,
+   69.4,
+   27.4
+  ]
+ },
+ "creature/<defaults>": {
+  "hash": "75eceb7a07f78aeb",
+  "tris": 45614,
+  "verts": 22831,
+  "vol": 26883.984751,
+  "bbox": [
+   138.872517,
+   138.872517,
+   18.92
+  ]
+ },
+ "creature/preset:Dragon": {
+  "hash": "27f2d14d228f05e7",
+  "tris": 49294,
+  "verts": 24675,
+  "vol": 40131.740045,
+  "bbox": [
+   174.481772,
+   174.481772,
+   26.270537
+  ]
+ },
+ "creature/preset:Snake": {
+  "hash": "7f745b52fec82c0b",
+  "tris": 69768,
+  "verts": 34920,
+  "vol": 17638.198229,
+  "bbox": [
+   155.623814,
+   155.623814,
+   14.72
+  ]
+ },
+ "creature/preset:Caterpillar": {
+  "hash": "959ced063f0ccf9c",
+  "tris": 27382,
+  "verts": 13675,
+  "vol": 23238.116696,
+  "bbox": [
+   115.738342,
+   115.738342,
+   27.375991
+  ]
+ },
+ "creature/preset:Capybara": {
+  "hash": "a6a86cc0de2b0a65",
+  "tris": 14736,
+  "verts": 7376,
+  "vol": 90825.720477,
+  "bbox": [
+   121.797481,
+   121.797481,
+   30.796399
+  ]
+ },
+ "creature/preset:Lizard": {
+  "hash": "1cc2c5c88b09531e",
+  "tris": 39000,
+  "verts": 19524,
+  "vol": 25789.674082,
+  "bbox": [
+   148.9513,
+   148.9513,
+   22.733882
+  ]
+ },
+ "creature/preset:Joint gauge": {
+  "hash": "87c9ad0292c4a662",
+  "tris": 29606,
+  "verts": 14815,
+  "vol": 11689.500374,
+  "bbox": [
+   70.2525,
+   18,
+   18.6
+  ]
+ },
+ "creature/preset:Joint gauge, nested seams": {
+  "hash": "0d3cff81b2a97d9d",
+  "tris": 26288,
+  "verts": 13156,
+  "vol": 18924.145043,
+  "bbox": [
+   94.2525,
+   18,
+   18.6
   ]
  }
 }

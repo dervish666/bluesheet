@@ -1,6 +1,6 @@
 # Bluesheet — parametric printable-object foundry
 
-**Port 8132 · started 2026-08-21 21:50 BST**
+**Port 8132 · `bluesheet.local` · started 2026-08-21 21:50 BST**
 
 ## What it is
 
@@ -31,7 +31,7 @@ mesh, and the value is in the catalogue of those functions.
    its parameter space that the generator declares legal.
 5. **Deterministic.** `build(p)` twice with the same params gives byte-identical
    STL. Randomness only via an explicit `seed` param.
-6. **Touch-first UI.** It is driven from an iPad. Every control must work with a finger:
+6. **Touch-first UI.** Sam uses an iPad. Every control must work with a finger:
    number fields with steppers, not bare drag-sliders; nothing that needs hover.
 7. **`ThreadingHTTPServer`**, JSON files for state, no database.
 8. Bed is the **A1 mini: 180 × 180 × 180 mm**. Refuse-with-a-warning, never
@@ -171,6 +171,8 @@ export default {
 Param entry:
 ```js
 { key, label, type, def, group?, help?, unit?, showIf?(p),
+  //         carries?(v, p) -> {key: value}   enum only: sibling values a choice brings
+  //         with it (a board bringing its ports). Applied on a USER change only.
   // number: min, max, step, precision, soft (allow beyond min/max with warning)
   // enum:   options: [{ v, label, help? }]
   // bool, text (maxLength), image (-> {w,h,gray:Float32Array}), series (-> number[]),
@@ -316,7 +318,7 @@ stringing baseline it does not need to fight at 2am.
   already written their files and, in most cases, their gate evidence; what they
   had not done was flip the checkboxes.
 - [02:01] Resumed. Re-established state before restarting anything: 1,748 checks
-  green across 11 suites, the server still live on 8132.
+  green across 11 suites, the server still live on 8132, `bluesheet.local` resolving.
   Dispatched builders and the interface immediately, in parallel, since both are
   on the critical path.
 - [02:07] Certified the seven wave-1 leaves myself by re-running every CHECK —
@@ -349,7 +351,7 @@ stringing baseline it does not need to fight at 2am.
   as an ABANDON on R8 with the reasoning rather than routed around: the guard is
   a second, independent check on an irreversible physical action, and "the user
   said yes four hours ago" is exactly the argument that would make it useless.
-  Flagged to the owner; the file is staged and needs one tap.
+  Told Sam; the file is staged and needs one tap.
 - [02:31] Closed the last integration gap found earlier: `assets/terrain/*.json`
   now serves, through a narrow exception for `assets/` rather than adding `.json`
   to the extension allowlist — configuration files are overwhelmingly `.json` and

@@ -3,18 +3,18 @@
 Scope: getting geometry out of the browser and back in, byte-exactly.
 
 - [x] G1: suite passes
-  CHECK: node tests/stl.test.mjs 2>&1 | tail -3
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/stl.test.mjs 2>&1 | tail -3
   EXPECT: RESULT: PASS
   EVIDENCE: `K5 stl: 172/172 passed` / `RESULT: PASS`
 
 - [x] G2: every export exercised
-  CHECK: node tests/coverage.mjs js/kernel/stl.js tests/stl.test.mjs 2>&1 | tail -2
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/coverage.mjs js/kernel/stl.js tests/stl.test.mjs 2>&1 | tail -2
   EXPECT: missing: none
   EVIDENCE: `COVERAGE: 6/6 exports covered` / `missing: none`
   (the six: exportBinarySTL, exportASCIISTL, exportOBJ, export3MF, importSTL, detectFormat)
 
 - [x] G3: at least 25 checks
-  CHECK: node tests/stl.test.mjs 2>&1 | grep -c '^  ok '
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/stl.test.mjs 2>&1 | grep -c '^  ok '
   EXPECT: /^([2-9][0-9]|[1-9][0-9][0-9]+)$/
   EVIDENCE: `172`
 
@@ -32,7 +32,7 @@ Scope: getting geometry out of the browser and back in, byte-exactly.
     `ok  length is 84 + 50n  — 134 bytes for 1 triangle`
     `ok  triangle count bytes at offset 80 are 01 00 00 00 (uint32 LE)  — 01000000`
     `ok  header contains no digits (so: no clock, no version stamp)  — Bluesheet tri`
-    `ok  header contains no hostname  — hostname is "<host>"`
+    `ok  header contains no hostname  — hostname is "claudespace"`
     `ok  uint16 attribute at offset 132 is 0`
     `ok  exportBinarySTL is byte-identical to the independently written Mesh#toSTL — 134 vs 134 bytes`
   Confirmed a third time out-of-band by Python's `struct`, which shares no code
@@ -73,7 +73,7 @@ Scope: getting geometry out of the browser and back in, byte-exactly.
     non-STL text, ASCII "nan", a missing coordinate ("line 4"), a 2-vertex loop.
 
 - [x] G6: exports are deterministic across two calls and across a process restart
-  CHECK: node -e "import('./js/kernel/stl.js').then(async S=>{const {sphere}=await import('./js/kernel/builders.js').catch(()=>({}));const {Mesh}=await import('./js/kernel/mesh.js');const m=new Mesh();const v=[[0,0,0],[9,0,0],[0,7,0],[0,0,5]].map(p=>m.addVertex(...p));m.addTri(v[0],v[2],v[1]);m.addTri(v[0],v[1],v[3]);m.addTri(v[1],v[2],v[3]);m.addTri(v[0],v[3],v[2]);const a=S.exportBinarySTL(m,'x');const b=S.exportBinarySTL(m,'x');console.log('same:',Buffer.compare(Buffer.from(a),Buffer.from(b))===0, 'sha:', require('crypto').createHash('sha1').update(Buffer.from(a)).digest('hex').slice(0,12))})" 2>&1 | tail -1
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node -e "import('./js/kernel/stl.js').then(async S=>{const {sphere}=await import('./js/kernel/builders.js').catch(()=>({}));const {Mesh}=await import('./js/kernel/mesh.js');const m=new Mesh();const v=[[0,0,0],[9,0,0],[0,7,0],[0,0,5]].map(p=>m.addVertex(...p));m.addTri(v[0],v[2],v[1]);m.addTri(v[0],v[1],v[3]);m.addTri(v[1],v[2],v[3]);m.addTri(v[0],v[3],v[2]);const a=S.exportBinarySTL(m,'x');const b=S.exportBinarySTL(m,'x');console.log('same:',Buffer.compare(Buffer.from(a),Buffer.from(b))===0, 'sha:', require('crypto').createHash('sha1').update(Buffer.from(a)).digest('hex').slice(0,12))})" 2>&1 | tail -1
   EXPECT: same: true
   EVIDENCE: `same: true sha: c815be747827`
   Across a process restart, a 1.2 s wall-clock gap, and a changed TZ + locale

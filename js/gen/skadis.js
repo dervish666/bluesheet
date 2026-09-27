@@ -32,7 +32,7 @@
 //
 // The first draft of this file had the throat the other way up — bridge at the
 // top, a shallow wedge hanging below it — which is mechanically defensible and
-// is not what the working parts do. A photograph of a bin actually printed
+// is not what the working parts do. Sam's photograph of a bin he has printed
 // settled it. Verify the spec, not your reasoning about the spec.
 //
 // Those board figures are community-measured — IKEA publishes nothing — so they
@@ -114,7 +114,7 @@ const GAUGE_STEPS = [-0.30, -0.15, 0, 0.15, 0.30];
  * (0,0) (½p,-½p) (p,0) (3½p... : five tabs, ~80 mm wide, every one over a slot.
  *
  * The first gauge put them 11 mm apart to keep the print small. It printed
- * perfectly and not one tab lined up with a slot (2026-09-03). A gauge
+ * perfectly and not one tab lined up with a slot (Sam, 2026-09-03). A gauge
  * that measures a board must be shaped like the board.
  */
 function gaugeTabs(pitch, zTop) {

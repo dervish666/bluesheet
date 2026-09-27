@@ -1,6 +1,6 @@
 // The plate, driven in real Chrome against the real server.
 //
-//   node tests/plate.test.mjs
+//   cd ~/explorer/projects/bluesheet && node tests/plate.test.mjs
 //   (the service must be up on 8132)
 //
 // Gates P1 G3–G6: add objects from two generators with quantities, pack them,

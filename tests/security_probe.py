@@ -150,7 +150,7 @@ def main():
                      "/js/kernel/mesh.js%00.png",
                      "/%2e%2e%5c%2e%2e%5cwindows", "/....//....//etc/passwd",
                      "/js/%252e%252e/server.py", "/~/secrets.md",
-                     "/home/user/secrets.md"):
+                     "/home/claude/explorer/secrets.md"):
             refused(port, path, "traversal")
 
         for path in ("/js/kernel/mesh.js\x00.png", "/server.py\x00.js",
@@ -218,6 +218,19 @@ def main():
         report("slice id traversal refused", status in (400, 404), f"status {status}")
         status, data = get(port, "/api/library/..%2f..%2fetc%2fpasswd")
         report("library id traversal refused", status in (400, 404), f"status {status}")
+
+        # The Bambu hand-off GET is unauthenticated by design (Bambu Studio fetches
+        # it with no cookie or Origin), so its id must never become a path.
+        for path in ("/api/bambu/..%2f..%2fserver.py", "/api/bambu/../../server.py",
+                     "/api/bambu/%2e%2e/%2e%2e/etc/passwd", "/api/bambu/" + "0" * 32 + "/../../server.py",
+                     "/api/bambu/" + "0" * 32 + "/x.3mf"):
+            refused(port, path, "bambu id traversal / unknown id")
+        status, _ = get(port, "/api/bambu", "POST",
+                        {"Content-Type": "application/json", "Origin": "http://evil.example"},
+                        json.dumps({"name": "x", "data": "UEsDBA=="}).encode())
+        report("cross-origin bambu park refused", status == 403, f"status {status}")
+        status, _ = get(port, "/api/bambu", "POST", {"Content-Type": "text/plain"}, b"{}")
+        report("non-json bambu park refused", status == 415, f"status {status}")
 
     finally:
         for rel in DECOYS:

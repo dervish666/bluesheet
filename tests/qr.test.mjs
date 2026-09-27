@@ -38,7 +38,7 @@ check('version 1 is 21 modules, version 40 is 177', sizeOf(1) === 21 && sizeOf(4
 throws('version 41 does not exist', () => sizeOf(41));
 
 const payloads = [
-  ['HELLO WORLD', 1], ['https://example.com/#qrplaque', 2], [wifiString({ ssid: 'Home;Net', password: 'pa:ss,word', security: 'WPA' }), 3],
+  ['HELLO WORLD', 1], ['https://bluesheet.local/#qrplaque', 2], [wifiString({ ssid: 'Sam;Net', password: 'pa:ss,word', security: 'WPA' }), 3],
   ['Yr Wyddfa — 1,085 m ☕', 3], ['x'.repeat(220), 10], ['0123456789'.repeat(9), 4],
   ['A much longer piece of text, the kind a plaque might carry: opening hours, a phone number, and a line saying please ring the bell twice.'.repeat(3), 15],
 ];
@@ -52,7 +52,7 @@ for (const [text, minV] of payloads) for (const ecc of ['L', 'M', 'Q', 'H']) {
 }
 check(`zbarimg reads back every payload at every ECC level (${decoded}/${tried})`, decoded === tried);
 check('the Wi-Fi string escapes ; : , and survives the round trip',
-  decode(encode(wifiString({ ssid: 'Home;Net', password: 'pa:ss,word' }), { ecc: 'Q' }), 'wifi') === 'WIFI:T:WPA;S:Home\\;Net;P:pa\\:ss\\,word;;');
+  decode(encode(wifiString({ ssid: 'Sam;Net', password: 'pa:ss,word' }), { ecc: 'Q' }), 'wifi') === 'WIFI:T:WPA;S:Sam\\;Net;P:pa\\:ss\\,word;;');
 
 // Falsification: a broken finder must fail to decode.
 const bad = encode('HELLO WORLD', { ecc: 'M' });

@@ -3,7 +3,7 @@
 // Every generator declares its own parameters, so this builds itself from the
 // declaration rather than from a per-generator template. Three rules shape it:
 //
-//   * A number is a stepper — minus, a field, plus — because it is driven from a tablet
+//   * A number is a stepper — minus, a field, plus — because Sam uses an iPad
 //     and a bare drag-slider on a touch screen cannot be nudged by one. The
 //     field itself also scrubs sideways under a finger, which is the fast way,
 //     but nothing depends on that being discovered.
@@ -382,7 +382,7 @@ export class ParamPanel {
     const id = `p-${q.key}`;
     const file = el('input', { id, type: 'file', accept: 'image/*' });
     const thumb = el('canvas.thumb', { width: 56, height: 56, 'aria-hidden': 'true' });
-    const caption = el('span.help', { text: 'Drop a picture, or tap to choose one' });
+    const caption = el('span.help', { text: 'Drop or paste a picture, or tap to choose one' });
     const zone = el('label.dropzone', { for: id }, [thumb, caption]);
     const row = el('div.prow.prow--image', { dataset: { param: q.key } }, [
       el('div.prow-head', null, [el('label.lbl', { for: id, text: q.label || q.key })]),
@@ -411,6 +411,16 @@ export class ParamPanel {
       zone.classList.remove('is-over');
       take(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]);
     });
+    // A pasted image goes to the picture param on screen. The listener lives on
+    // the document, so it removes itself once the panel has rebuilt this row away.
+    const onPaste = (e) => {
+      if (!row.isConnected) { document.removeEventListener('paste', onPaste); return; }
+      const f = [...((e.clipboardData && e.clipboardData.files) || [])].find((x) => x.type.startsWith('image/'));
+      if (!f) return;
+      e.preventDefault();
+      take(f);
+    };
+    document.addEventListener('paste', onPaste);
 
     return {
       q, row,

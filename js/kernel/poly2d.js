@@ -1515,6 +1515,25 @@ function interiorPoint(input) {
   return [(a[0] + b[0] + c[0]) / 3, (a[1] + b[1] + c[1]) / 3];
 }
 
+/**
+ * Outer rings of the shapes standing directly inside `hole` (not inside one of
+ * each other), as holes for an interior-point probe. Rings out of one winding
+ * fill never cross, so one vertex decides containment.
+ */
+function islandsIn(hole, shapes, boxes, self) {
+  const hb = bounds([hole]);
+  const inside = [];
+  for (let k = 0; k < shapes.length; k++) {
+    const s = shapes[k];
+    if (s === self) continue;
+    const b = boxes[k];
+    if (b.min[0] < hb.min[0] || b.max[0] > hb.max[0] || b.min[1] < hb.min[1] || b.max[1] > hb.max[1]) continue;
+    if (pointInRing(s[0][0], hole)) inside.push(s[0]);
+  }
+  if (inside.length < 2) return inside;
+  return inside.filter(r => !inside.some(q => q !== r && pointInRing(r[0], q)));
+}
+
 function minDistToRings(p, rings) {
   let best = Infinity;
   for (const ring of rings) {
@@ -1590,12 +1609,18 @@ export function offset(input, delta, { join = 'round', arcTolerance = 0.05, mite
   const allRings = [];
   for (const s of norm) for (const r of s) allRings.push(r);
   const out = [];
-  for (const sh of windingFill(raw)) {
+  const filled = windingFill(raw);
+  const boxes = filled.map(s => bounds([s[0]]));
+  for (const sh of filled) {
     const probe = interiorPoint(sh);
     if (!probe || !isOffsetMaterial(probe, norm, allRings, delta)) continue;
     const kept = [sh[0]];
     for (let i = 1; i < sh.length; i++) {
-      const hp = interiorPoint([sh[i]]);
+      // Probe the hole with the islands standing in it cut out. Probing the bare
+      // ring put the point on an island as often as not (a comic panel's frame
+      // with the figure in the middle), and the island's material then voted
+      // the whole hole shut, filling the frame solid.
+      const hp = interiorPoint([sh[i], ...islandsIn(sh[i], filled, boxes, sh)]);
       if (!hp || !isOffsetMaterial(hp, norm, allRings, delta)) kept.push(sh[i]);
     }
     out.push(kept);

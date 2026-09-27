@@ -4,6 +4,9 @@
 // that renders but throws in the console is not working, and a test that cannot
 // see the console cannot tell the difference.
 import { spawn } from 'node:child_process';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 
 const PORT = Number(process.env.BLUESHEET_CDP_PORT || 9334);
@@ -11,7 +14,13 @@ const URL_ = process.env.BLUESHEET_URL || 'http://127.0.0.1:8132/';
 
 export async function withPage(fn, { readyExpr = 'typeof window.__bluesheet !== "undefined" && window.__bluesheet.ready === true', timeout = 60000, size = '1400,900' } = {}) {
   const headed = process.env.BLUESHEET_HEADED === '1';
-  const chrome = spawn('google-chrome', [
+  // Linux names the binary `google-chrome`; macOS hides it inside the bundle and
+  // the running desktop Chrome owns the default profile, so headless gets its own.
+  const CHROME = process.env.BLUESHEET_CHROME
+    || (process.platform === 'darwin' ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' : 'google-chrome');
+  const macProfile = !headed && process.platform === 'darwin' ? [`--user-data-dir=${mkdtempSync(join(tmpdir(), 'bluesheet-cdp-'))}`] : [];
+  const chrome = spawn(CHROME, [
+    ...macProfile,
     ...(headed ? [] : ['--headless=new', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader']),
     `--remote-debugging-port=${PORT}`,
     '--no-sandbox', '--disable-dev-shm-usage', `--window-size=${size}`,

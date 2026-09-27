@@ -57,18 +57,18 @@ function dvOf(u8) { return new DataView(u8.buffer, u8.byteOffset, u8.byteLength)
  * resolution of the format we are usually writing into; more digits would only
  * make the file bigger while claiming accuracy the binary form cannot carry.
  */
-function fmtNum(v) {
+export function fmtNum(v) {
   if (v === 0) return '0';                 // also normalises -0, which String() would print as "0" anyway
   const r = Number(v.toPrecision(9));      // toPrecision is spec-exact, so this is deterministic
   return String(r);
 }
 
-function xmlEscape(s) {
+export function xmlEscape(s) {
   return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]));
 }
 
 /** Printable-ASCII only, on one line — for STL headers, OBJ names, zip metadata. */
-function sanitizeName(name, fallback = 'bluesheet') {
+export function sanitizeName(name, fallback = 'bluesheet') {
   let s = String(name ?? '').replace(/[^\x20-\x7e]/g, ' ').trim();
   return s.length ? s : fallback;
 }
@@ -304,7 +304,7 @@ const DOS_DATE = 0x0021;   // (1980-1980)<<9 | 1<<5 | 1
  * dependency-free and is what the OPC readers in the Bambu/Orca/Prusa lineage
  * handle most happily.
  */
-function writeZipStored(files) {
+export function writeZipStored(files) {
   const enc = new TextEncoder();
   const recs = files.map(f => {
     const nameBytes = enc.encode(f.name);
@@ -390,32 +390,44 @@ const RELS_XML =
   `<Relationship Id="rel0" Target="/3D/3dmodel.model" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/>` +
   `</Relationships>\n`;
 
-function model3MFXml(mesh, name) {
+/**
+ * The `   <mesh>...</mesh>\n` element of a 3MF object, every vertex moved by
+ * `-shift` on the way out. Shared by export3MF and the Bambu project writer
+ * (js/kernel/bambu.js), which stores its object centred on its own bounding box
+ * the way Bambu Studio does. Built in 64 kB chunks so a 200k-triangle mesh is
+ * not one string grown a line at a time.
+ */
+export function meshXml(mesh, who, shift = [0, 0, 0]) {
+  requireMesh(mesh, who);
   const p = mesh.positions;
   const vc = p.length / 3;
+  const [sx, sy, sz] = shift;
   const parts = [];
-  let chunk =
-    `<?xml version="1.0" encoding="UTF-8"?>\n` +
-    `<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">\n` +
-    ` <metadata name="Application">Bluesheet</metadata>\n` +
-    ` <metadata name="Title">${xmlEscape(name)}</metadata>\n` +
-    ` <resources>\n  <object id="1" type="model" name="${xmlEscape(name)}">\n   <mesh>\n    <vertices>\n`;
+  let chunk = `   <mesh>\n    <vertices>\n`;
   for (let v = 0; v < vc; v++) {
     const x = p[v * 3], y = p[v * 3 + 1], z = p[v * 3 + 2];
-    if (!(Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z))) badVertex('export3MF', v, x, y, z, -1);
-    chunk += `     <vertex x="${fmtNum(x)}" y="${fmtNum(y)}" z="${fmtNum(z)}"/>\n`;
+    if (!(Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z))) badVertex(who, v, x, y, z, -1);
+    chunk += `     <vertex x="${fmtNum(x - sx)}" y="${fmtNum(y - sy)}" z="${fmtNum(z - sz)}"/>\n`;
     if (chunk.length > 1 << 16) { parts.push(chunk); chunk = ''; }
   }
   chunk += `    </vertices>\n    <triangles>\n`;
-  eachTriangle(mesh, 'export3MF', (t) => {
+  eachTriangle(mesh, who, (t) => {
     chunk += `     <triangle v1="${mesh.tris[t * 3]}" v2="${mesh.tris[t * 3 + 1]}" v3="${mesh.tris[t * 3 + 2]}"/>\n`;
     if (chunk.length > 1 << 16) { parts.push(chunk); chunk = ''; }
   });
-  chunk +=
-    `    </triangles>\n   </mesh>\n  </object>\n </resources>\n` +
-    ` <build>\n  <item objectid="1" transform="1 0 0 0 1 0 0 0 1 0 0 0"/>\n </build>\n</model>\n`;
-  parts.push(chunk);
+  parts.push(chunk + `    </triangles>\n   </mesh>\n`);
   return parts.join('');
+}
+
+function model3MFXml(mesh, name) {
+  return `<?xml version="1.0" encoding="UTF-8"?>\n` +
+    `<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">\n` +
+    ` <metadata name="Application">Bluesheet</metadata>\n` +
+    ` <metadata name="Title">${xmlEscape(name)}</metadata>\n` +
+    ` <resources>\n  <object id="1" type="model" name="${xmlEscape(name)}">\n` +
+    meshXml(mesh, 'export3MF') +
+    `  </object>\n </resources>\n` +
+    ` <build>\n  <item objectid="1" transform="1 0 0 0 1 0 0 0 1 0 0 0"/>\n </build>\n</model>\n`;
 }
 
 /**

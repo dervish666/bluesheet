@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Bluesheet — parametric printable-object foundry. HTTP surface, port 8132.
 
+    http://bluesheet.local  ·  http://claudespace.local:8132
+
 The browser does the geometry. This process does the four things it cannot:
 runs OrcaSlicer, reads the result back to check the slicer told the truth, talks
 to the printer, and keeps saved designs. Everything else it serves is static.
@@ -40,7 +42,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from server import (VERSION, elevation, fonts, gcode, library, printer,  # noqa: E402
+from server import (VERSION, bambu, elevation, fonts, gcode, library, printer,  # noqa: E402
                     slicer, stlio, util)
 from server import plate as plate_api, made as made_api  # noqa: E402
 
@@ -72,6 +74,7 @@ CACHE_FOREVER = (".woff", ".woff2", ".ttf", ".otf", ".png", ".jpg", ".jpeg",
 MAX_BODY = 8 * 1024 * 1024
 MAX_SLICE_BODY = 96 * 1024 * 1024      # a base64 STL of ~70 MB
 MAX_OBJECTS = 32
+MAX_BAMBU_BODY = bambu.MAX_BYTES * 4 // 3 + 64 * 1024   # base64 of the largest project, plus the name
 
 _health_cache = {"at": 0.0, "printer": None}
 _print_log_lock = threading.Lock()
@@ -195,7 +198,7 @@ class BluesheetHandler(SimpleHTTPRequestHandler):
         Requiring application/json forces a preflight for any cross-origin fetch,
         and there is no do_OPTIONS to answer it. The Origin/Referer test then
         catches same-content-type forgeries and is written against Host so it
-        keeps working across a hostname, localhost and the DHCP address without
+        keeps working across bluesheet.local, localhost and the DHCP address without
         a list of names to maintain. curl and the tests send neither header and
         are allowed through: this blocks browsers, not the LAN.
         """
@@ -258,6 +261,8 @@ class BluesheetHandler(SimpleHTTPRequestHandler):
                 return self._post_print()
             if path == "/api/library":
                 return self._post_library()
+            if path == "/api/bambu":
+                return self._post_bambu()
             if plate_api.route(self, "POST", path):
                 return
             return self._fail(404, "no such endpoint")
@@ -328,6 +333,8 @@ class BluesheetHandler(SimpleHTTPRequestHandler):
             return self._printer_state()
         if path.startswith("/api/slice/"):
             return self._slice_get(path, query)
+        if path.startswith("/api/bambu/"):
+            return self._bambu_get(path)
         return self._fail(404, "no such endpoint")
 
     def _health(self):
@@ -607,6 +614,47 @@ class BluesheetHandler(SimpleHTTPRequestHandler):
                         **{k: record.get(k) for k in
                            ("id", "name", "bytes", "started", "timeText", "grams")}})
         util.atomic_write_json(path, rows[:200], indent=1)
+
+    def _post_bambu(self):
+        """Park a Bambu Studio project for Bambu Studio to fetch. See server/bambu.py."""
+        body = self._read_json(MAX_BAMBU_BODY)
+        if body is None:
+            return
+        raw = body.get("data")
+        if not isinstance(raw, str):
+            return self._fail(400, "send data: the project 3mf as base64 text")
+        try:
+            data = base64.b64decode(raw, validate=True)
+        except (binascii.Error, ValueError):
+            return self._fail(400, "data is not valid base64")
+        try:
+            key, stem = bambu.put(data, body.get("name"))
+        except bambu.BambuError as e:
+            return self._fail(400, str(e))
+        self.note(f"bambu park {key} {stem}.3mf {len(data)} bytes from {_client_of(self)}")
+        self._json({"ok": True, "id": key, "url": f"/api/bambu/{key}/{stem}.3mf",
+                    "bytes": len(data), "ttl": bambu.TTL}, 201)
+
+    def _bambu_get(self, path):
+        """GET /api/bambu/<id>/<name>.3mf, the URL Bambu Studio downloads. The
+        id is the whole key; the name only has to end .3mf for Bambu's sake."""
+        parts = path[len("/api/bambu/"):].split("/")
+        if len(parts) > 2 or not bambu.is_id(parts[0]):
+            return self._fail(404, "no such project")
+        if len(parts) == 2 and not parts[1].lower().endswith(".3mf"):
+            return self._fail(404, "no such project")
+        entry = bambu.get(parts[0])
+        if entry is None:
+            self.note(f"bambu fetch {parts[0][:8]}... MISSING for {_client_of(self)}")
+            return self._fail(404, "no such project (links last "
+                                   f"{bambu.TTL // 60} minutes)")
+        ua = (self.headers.get("User-Agent") or "-")[:120]
+        self.note(f"bambu fetch {parts[0]} {entry['name']}.3mf {len(entry['data'])} bytes "
+                  f"{self.command} for {_client_of(self)} UA {ua!r}")
+        self._send(entry["data"], 200, "model/3mf", gzip_ok=False, headers={
+            "Content-Disposition": f'attachment; filename="{entry["name"]}.3mf"',
+            "Cache-Control": "no-store",
+        })
 
     def _post_library(self):
         body = self._read_json()

@@ -6,14 +6,14 @@ and what it will cost. The kernel already knows how; this is the front door.
 
 - [x] G1: dropping a file works, including a 30 MB STL, and the analysis appears
       without freezing the page (parsing happens off the main thread or chunked)
-  CHECK: node tests/inspect.test.mjs 2>&1 | tail -3
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/inspect.test.mjs 2>&1 | tail -3
   EXPECT: RESULT: PASS
   EVIDENCE (2026-09-03): `node tests/inspect.test.mjs` 55/55, RESULT: PASS. A 30.8 MB
     heightfield STL parsed in `inspect-worker.js` in 2.3 s with 134 rAF frames
     ticking on the main thread during the parse.
 
 - [x] G2: at least 25 checks
-  CHECK: node tests/inspect.test.mjs 2>&1 | grep -c '^  ok '
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/inspect.test.mjs 2>&1 | grep -c '^  ok '
   EXPECT: /^([2-9][0-9]|[1-9][0-9][0-9]+)$/
   EVIDENCE (2026-09-03): 55 `  ok ` lines.
 

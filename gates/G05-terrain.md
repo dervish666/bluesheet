@@ -12,13 +12,13 @@ Scope: A place, as an object. Real elevation data becomes a tile you can hold.
       every numeric parameter at its min AND its max and asserts the result is
       still a watertight solid resting on the plate. A generator that only works
       at its defaults fails here.
-  CHECK: node tests/gen-terrain.test.mjs 2>&1 | grep 'parameter sweep'
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/gen-terrain.test.mjs 2>&1 | grep 'parameter sweep'
   EXPECT: /builds, 0 defects/
   EVIDENCE: parameter sweep: every extreme still yields a watertight solid (57 builds) — 57 builds, 0 defects
 
 - [x] G3: at least 38 checks in the suite, of which at least 16 are
       domain-specific (not from the shared harness)
-  CHECK: node tests/gen-terrain.test.mjs 2>&1 | grep -c '^  ok '
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/gen-terrain.test.mjs 2>&1 | grep -c '^  ok '
   EXPECT: /^(3[8-9]|[4-9][0-9]|[1-9][0-9][0-9]+)$/
   EVIDENCE: 86 checks. Under the 38 the gate asked for in the shared/domain split it wanted, and honestly so — see the ABANDON note below.
 
@@ -63,8 +63,8 @@ ABANDON: G3 the 38-check floor with a 16-check domain split. The suite has 86
 checks, but 62 of them come from the shared harness and 24 are domain-specific,
 so it clears the total and not the split the gate asked for. The reason is worth
 recording rather than papering over: the five agents that were to write this
-suite and verify the generator adversarially were stopped mid-run by a usage
-limit, at 22% of the week's remaining tokens. What is here I measured and wrote
+suite and verify the generator adversarially were stopped mid-run when Sam said
+he was down to 22% of his weekly tokens. What is here I measured and wrote
 myself, and I chose the two checks that carry the whole generator — the seam and
 the squash — over reaching a count. The gap is real: there is no independent
 adversarial pass on this generator, unlike stand, and the joints in particular

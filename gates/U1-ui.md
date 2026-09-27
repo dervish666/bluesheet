@@ -12,7 +12,7 @@ the visual identity in docs/design.md, executed rather than approximated.
   EVIDENCE: pending
 
 - [ ] G2: at least 35 browser-level checks
-  CHECK: node tests/ui.test.mjs 2>&1 | grep -c '^  ok '
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/ui.test.mjs 2>&1 | grep -c '^  ok '
   EXPECT: /^(3[5-9]|[4-9][0-9]|[1-9][0-9][0-9]+)$/
   EVIDENCE: pending
 
@@ -28,7 +28,7 @@ the visual identity in docs/design.md, executed rather than approximated.
       hex values from that document, Archivo Narrow is used for labels and the
       title block and IBM Plex Mono for every number, `--heat` appears ONLY on the
       slice/print path and on errors, and there is no green anywhere.
-  CHECK: grep -oE "#(0D1621|14202E|0A121B|7FA6C7|33475C|E9F2FA|9DB4C9|FF6A1F|8A3A15|F2C94C)" css/bluesheet.css | sort -u | wc -l
+  CHECK: cd /home/claude/explorer/projects/bluesheet && grep -oE "#(0D1621|14202E|0A121B|7FA6C7|33475C|E9F2FA|9DB4C9|FF6A1F|8A3A15|F2C94C)" css/bluesheet.css | sort -u | wc -l
   EXPECT: /^(9|10)$/
   EVIDENCE: pending
 
@@ -54,7 +54,7 @@ the visual identity in docs/design.md, executed rather than approximated.
       correctly at 820px (iPad portrait) and 390px (phone). Verified by resizing
       the page in the browser test and asserting the computed layout, not by
       reading the CSS.
-  CHECK: node tests/ui.test.mjs 2>&1 | grep -iE 'touch|44px|820|390' | head -5
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/ui.test.mjs 2>&1 | grep -iE 'touch|44px|820|390' | head -5
   EXPECT: /ok /
   EVIDENCE: pending
 
@@ -76,7 +76,7 @@ the visual identity in docs/design.md, executed rather than approximated.
       geometry work happens off the main thread or in an interruptible chunked
       loop so dragging a parameter never freezes the page, and everything stops on
       `document.hidden`.
-  CHECK: grep -c "visibilitychange\|document.hidden" js/ui/*.js js/app.js | grep -v ':0' | wc -l
+  CHECK: cd /home/claude/explorer/projects/bluesheet && grep -c "visibilitychange\|document.hidden" js/ui/*.js js/app.js | grep -v ':0' | wc -l
   EXPECT: /[1-9]/
   EVIDENCE: 1 | grep: js/app.js: No such file or directory
 

@@ -4,17 +4,17 @@ Scope: the escape hatch. Generators construct directly where they can; when they
 cannot, this must not hand them a leaking solid.
 
 - [x] G1: suite passes
-  CHECK: node tests/csg.test.mjs 2>&1 | tail -3
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/csg.test.mjs 2>&1 | tail -3
   EXPECT: RESULT: PASS
   EVIDENCE: `csg: 326/326 passed` / `RESULT: PASS`
 
 - [x] G2: every export exercised
-  CHECK: node tests/coverage.mjs js/kernel/csg.js tests/csg.test.mjs 2>&1 | tail -2
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/coverage.mjs js/kernel/csg.js tests/csg.test.mjs 2>&1 | tail -2
   EXPECT: missing: none
   EVIDENCE: `COVERAGE: 6/6 exports covered` / `missing: none`
 
 - [x] G3: at least 40 checks
-  CHECK: node tests/csg.test.mjs 2>&1 | grep -c '^  ok '
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/csg.test.mjs 2>&1 | grep -c '^  ok '
   EXPECT: /^([4-9][0-9]|[1-9][0-9][0-9]+)$/
   EVIDENCE: `326`
 
@@ -64,7 +64,7 @@ cannot, this must not hand them a leaking solid.
 - [x] G6: it is fast enough to be usable — union of two 5k-triangle spheres in
       under 2 seconds on this laptop, and 20 sequential subtractions of a small
       cylinder from a plate in under 5 seconds. Print the measured times.
-  CHECK: node tests/csg.test.mjs 2>&1 | grep -i 'ms\|seconds\|timing' | head -5
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/csg.test.mjs 2>&1 | grep -i 'ms\|seconds\|timing' | head -5
   EXPECT: /ok /
   EVIDENCE: ok union of two 5120-triangle spheres under 2000 ms  — 1040 ms
         ok 20 sequential subtractions under 5000 ms  — 310 ms

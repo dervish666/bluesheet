@@ -13,7 +13,7 @@ Scope: Small, tactile, and entirely about the fit onto the shaft.
   EVIDENCE: pending
 
 - [ ] G3: at least 32 checks, of which at least 14 are domain-specific
-  CHECK: node tests/gen-knob.test.mjs 2>&1 | grep -c '^  ok '
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/gen-knob.test.mjs 2>&1 | grep -c '^  ok '
   EXPECT: /^(3[2-9]|[4-9][0-9]|[1-9][0-9][0-9]+)$/
   EVIDENCE: pending
 

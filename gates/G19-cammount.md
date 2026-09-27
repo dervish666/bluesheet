@@ -1,6 +1,6 @@
 # Gates: G19 — js/gen/cammount.js (Camera mounts and clamps)
 
-Scope: Mounts for cameras that are already in use. There is a hand-written cammount.scad in a sibling project — read it, then make it parametric.
+Scope: Mounts for the cameras already in this house. There is a hand-written cammount.scad in ~/explorer/projects/coresample — read it, then make it parametric.
 
 - [ ] G1: the suite passes
   CHECK: node tests/gen-cammount.test.mjs 2>&1 | tail -3
@@ -13,7 +13,7 @@ Scope: Mounts for cameras that are already in use. There is a hand-written cammo
   EVIDENCE: pending
 
 - [ ] G3: at least 32 checks, of which at least 14 are domain-specific
-  CHECK: node tests/gen-cammount.test.mjs 2>&1 | grep -c '^  ok '
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/gen-cammount.test.mjs 2>&1 | grep -c '^  ok '
   EXPECT: /^(3[2-9]|[4-9][0-9]|[1-9][0-9][0-9]+)$/
   EVIDENCE: pending
 

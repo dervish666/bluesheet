@@ -282,7 +282,7 @@ function rig(mesh) {
 // ---------------------------------------------------------------------------
 // Which way things slope.
 //
-// All three of these were caught on a render before anything was printed, and
+// Sam caught all three of these on a render before anything was printed, and
 // none of them had a test: the rake tipped the brush towards the open mouth,
 // the slot was at its widest exactly where the head bears, and only one side
 // of it was chamfered. A direction is a claim, and a claim wants a check.

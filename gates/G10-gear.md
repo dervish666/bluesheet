@@ -13,13 +13,13 @@ approximated. The most mathematically checkable generator in the set.
       every numeric parameter at its min AND its max and asserts the result is
       still a watertight solid resting on the plate. A generator that only works
       at its defaults fails here.
-  CHECK: node tests/gen-gear.test.mjs 2>&1 | grep 'parameter sweep'
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/gen-gear.test.mjs 2>&1 | grep 'parameter sweep'
   EXPECT: /builds, 0 defects/
   EVIDENCE: ok   parameter sweep: every extreme still yields a watertight solid (81 builds)  — 81 builds, 0 defects
 
 - [ ] G3: at least 38 checks in the suite, of which at least 18 are
       domain-specific (not from the shared harness)
-  CHECK: node tests/gen-gear.test.mjs 2>&1 | grep -c '^  ok '
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/gen-gear.test.mjs 2>&1 | grep -c '^  ok '
   EXPECT: /^(3[8-9]|[4-9][0-9]|[1-9][0-9][0-9]+)$/
   EVIDENCE: pending
 

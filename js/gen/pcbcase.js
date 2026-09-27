@@ -34,35 +34,105 @@ import { FIT, fitNote } from '../kernel/fit.js';
 // Hole positions are in CENTRED board coordinates (millimetres from the middle
 // of the board), because that is the frame the case is built in and converting
 // once here is better than converting in three places later.
+//
+// Connector positions are the exception: they are kept in the DRAWING's frame,
+// verbatim from the official Raspberry Pi mechanical drawings, so that every
+// number here can be checked against its source by eye. That frame has its
+// origin at the board's bottom-left corner, x along the 85 mm edge, y along
+// the 56 mm edge, the GPIO header along the top edge (y = 56) and USB/Ethernet
+// on the right end (x = 85). `c` is the connector's centre along its edge, `w`
+// its body width along that edge, `z` its Z-height above the board's top.
+// `cut` is the cutout this preset makes for it: body plus ~2 mm where only the
+// receptacle passes the wall, plug-overmould sized where the plug has to enter
+// the hole (micro USB, USB-C, micro HDMI, audio). presetPorts() converts to
+// the case frame — board centred, USB end to +x, GPIO edge to +y ("back").
+//
+// `fit` is what choosing the board from the Board menu carries with it —
+// the tallest component, the headroom and lid that clear it, and the ports —
+// and the presets are built from the same entry, so the menu and the preset
+// cannot disagree.
+//
+// Sources: datasheets.raspberrypi.com/rpi3/raspberry-pi-3-b-plus-mechanical-
+// drawing.pdf, /rpi4/raspberry-pi-4-mechanical-drawing.pdf and
+// /rpizero/raspberry-pi-zero-mechanical-drawing.pdf (read 2026-09-15).
 // ---------------------------------------------------------------------------
+
+// The micro SD card sits in a slot on the UNDERSIDE of every Pi, centred on the
+// left end, and pokes out past the board edge. Its cutout therefore starts
+// below the board's top surface: `drop` is how far below, board thickness plus
+// the slot's ~2.5 mm.
+const SD_SLOT = { name: 'micro SD slot', edge: 'left', c: 28, w: 11, z: 0, cut: [16, 4.5], drop: 4.1 };
 
 const BOARDS = {
   pi4: {
     label: 'Raspberry Pi 4 B', L: 85, W: 56,
     // 58 × 49 mm hole pattern, 3.5 mm in from two edges.
     holes: [[-39, -24.5], [-39, 24.5], [19, -24.5], [19, 24.5]],
-    note: 'Pi 4 B: 85 × 56 mm, the standard 58 × 49 mm hole pattern.',
+    ports: [
+      { name: 'Ethernet',     edge: 'right', c: 45.75, w: 15.9, z: 13.5, cut: [18, 15.5] },
+      { name: 'USB 3 stack',  edge: 'right', c: 27,    w: 13.1, z: 16,   cut: [15.5, 17.5] },
+      { name: 'USB 2 stack',  edge: 'right', c: 9,     w: 13.1, z: 16,   cut: [15.5, 17.5] },
+      { name: 'USB-C power',  edge: 'front', c: 11.2,  w: 9,    z: 3.2,  cut: [13, 8] },
+      { name: 'micro HDMI 0', edge: 'front', c: 26,    w: 7.5,  z: 3,    cut: [12, 7.5] },
+      { name: 'micro HDMI 1', edge: 'front', c: 39.5,  w: 7.5,  z: 3,    cut: [12, 7.5] },
+      { name: 'audio jack',   edge: 'front', c: 54,    w: 6,    z: 6,    cut: [9, 8] },
+      SD_SLOT,
+    ],
+    // Friction lid: with 1.5 mm of side clearance the corner screw posts would
+    // stand inside the board. 21 mm of headroom keeps the 3 mm lip above the
+    // 17.5 mm USB cutouts.
+    fit: { tallest: 16, clearAbove: 21, lidStyle: 'friction' },
+    note: 'Pi 4 B: 85 × 56 mm, the standard 58 × 49 mm hole pattern. Ports from the official mechanical drawing: Ethernet at the GPIO-side corner, then USB 3 and USB 2 stacks down the right end; USB-C, two micro HDMI and audio along the front.',
   },
   pi5: {
     label: 'Raspberry Pi 5', L: 85, W: 56,
     holes: [[-39, -24.5], [-39, 24.5], [19, -24.5], [19, 24.5]],
-    note: 'Pi 5: same 85 × 56 mm outline and 58 × 49 mm holes as the Pi 4.',
+    // No connector table yet: the Pi 5 moved its ports again (Ethernet back
+    // to the audio-side corner, no audio jack). Choosing it clears the port
+    // list rather than keeping another board's.
+    fit: { tallest: 16, clearAbove: 21, lidStyle: 'friction' },
+    note: 'Pi 5: same 85 × 56 mm outline and 58 × 49 mm holes as the Pi 4, but its ports moved again and have not been tabled here — measure them, or check the Pi 5 mechanical drawing.',
   },
   pi3bplus: {
     label: 'Raspberry Pi 3 B+', L: 85, W: 56,
     // Same Model B outline and 58 x 49 mm hole pattern as the Pi 4 — every
     // Model B since the 1 B+ shares it.
     holes: [[-39, -24.5], [-39, 24.5], [19, -24.5], [19, 24.5]],
-    note: 'Pi 3 B+: the SAME 85 x 56 mm outline and 58 x 49 mm holes as the Pi 4, so the shell and standoffs are interchangeable. The PORTS are not: the Pi 4 swapped Ethernet and USB, and uses USB-C plus two micro-HDMI where the 3 B+ has micro-USB and one full-size HDMI. Both long edges need different cutouts.',
+    ports: [
+      { name: 'USB stack (upper)', edge: 'right', c: 47,    w: 13.1, z: 16,   cut: [15.5, 17.5] },
+      { name: 'USB stack (lower)', edge: 'right', c: 29,    w: 13.1, z: 16,   cut: [15.5, 17.5] },
+      { name: 'Ethernet',          edge: 'right', c: 10.25, w: 15.9, z: 13.5, cut: [18, 15.5] },
+      { name: 'micro USB power',   edge: 'front', c: 10.6,  w: 7.6,  z: 3,    cut: [12, 7] },
+      { name: 'HDMI',              edge: 'front', c: 32,    w: 15,   z: 6.5,  cut: [17.5, 8.5] },
+      { name: 'audio jack',        edge: 'front', c: 53.5,  w: 6,    z: 6,    cut: [9, 8] },
+      SD_SLOT,
+    ],
+    fit: { tallest: 16, clearAbove: 21, lidStyle: 'friction' },
+    note: 'Pi 3 B+: the SAME 85 x 56 mm outline and 58 x 49 mm holes as the Pi 4, so the shell and standoffs are interchangeable. The PORTS are not: the Pi 4 swapped Ethernet and USB, and uses USB-C plus two micro-HDMI where the 3 B+ has micro-USB and one full-size HDMI. Both presets carry their own cutouts, taken from the official mechanical drawings.',
   },
   pizero: {
     label: 'Raspberry Pi Zero / Zero 2 W', L: 65, W: 30,
     holes: [[-29, -11.5], [-29, 11.5], [29, -11.5], [29, 11.5]],
-    note: 'Pi Zero: 65 × 30 mm, 58 × 23 mm hole pattern.',
+    // Everything is on the bottom edge and the left end. The SD slot is on
+    // TOP of the board here, so its cutout starts at the board top like the
+    // rest. The two micro USBs are 12.6 mm apart: 11 mm cutouts leave a
+    // 1.6 mm pillar between two plugs.
+    ports: [
+      { name: 'mini HDMI',       edge: 'front', c: 12.4, w: 10.9, z: 3.7, cut: [14, 7.5] },
+      { name: 'micro USB data',  edge: 'front', c: 41.4, w: 7.6,  z: 3,   cut: [11, 7] },
+      { name: 'micro USB power', edge: 'front', c: 54,   w: 7.6,  z: 3,   cut: [11, 7] },
+      { name: 'micro SD slot',   edge: 'left',  c: 16.9, w: 11,   z: 1.5, cut: [16, 4] },
+    ],
+    // 10 mm of headroom: the 2.5 mm lip must stay above the 7.5 mm HDMI cutout.
+    fit: { tallest: 6, clearAbove: 10, lidStyle: 'friction' },
+    note: 'Pi Zero: 65 × 30 mm, 58 × 23 mm hole pattern. Ports from the official drawing: mini HDMI and two micro USBs along the front, SD card out of the left end. Fit a 40-pin header and the tallest component becomes 8.5 mm.',
   },
   esp32: {
     label: 'ESP32 DevKit (38-pin)', L: 55, W: 28,
     holes: [[-25, -11.5], [-25, 11.5], [25, -11.5], [25, 11.5]],
+    // Not from a drawing: a USB port centred on one end is the one thing the
+    // dev boards have in common.
+    fit: { tallest: 14, clearAbove: 16, lidStyle: 'friction', ports: 'front:0:12:6' },
     note: 'ESP32 dev boards are NOT standardised — outlines run 48–58 mm and many have no mounting holes at all. Measure yours and use Custom if this does not match.',
   },
 };
@@ -75,6 +145,32 @@ const SCREWS = {
 
 function screwOf(k) { return SCREWS[k] || SCREWS.m25; }
 function boardOf(k) { return BOARDS[k] || null; }
+
+/**
+ * What choosing a board brings with it: its fit values and its port list.
+ * Empty for Custom, so a hand-typed board keeps whatever it had.
+ */
+export function boardCarries(key) {
+  const b = boardOf(key);
+  if (!b || !b.fit) return {};
+  const { ports: fitPorts, ...fit } = b.fit;
+  return { ...fit, ports: b.ports ? presetPorts(key) : (fitPorts ?? '') };
+}
+
+/**
+ * The port-cutout text for a board's connector table, converted from the
+ * drawing frame to the case frame. Right and left edges run along y, front
+ * and back along x; the offset is from the middle of that edge.
+ */
+export function presetPorts(key) {
+  const b = boardOf(key);
+  if (!b || !b.ports) return '';
+  return b.ports.map(q => {
+    const off = (q.edge === 'right' || q.edge === 'left') ? q.c - b.W / 2 : q.c - b.L / 2;
+    const s = `${q.edge}:${+off.toFixed(2)}:${q.cut[0]}:${q.cut[1]}`;
+    return q.drop ? `${s}:${q.drop}` : s;
+  }).join('; ');
+}
 
 // ---------------------------------------------------------------------------
 // Text-encoded tables
@@ -100,18 +196,24 @@ export function parseHoles(s, limit = 24) {
 
 const SIDES = ['left', 'right', 'front', 'back'];
 
-/** "side:offset:width:height; ..." -> [{side, offset, w, h}, ...] */
+/**
+ * "side:offset:width:height[:drop]; ..." -> [{side, offset, w, h, drop}, ...]
+ * `drop` is how far below the board's top surface the cutout floor sits
+ * (default 0): the way to reach a connector on the underside of the board.
+ */
 export function parsePorts(s, limit = 12) {
   const out = [];
   for (const part of String(s ?? '').split(/[;\n]/)) {
     const bits = part.split(':').map(t => t.trim());
-    if (bits.length !== 4) continue;
+    if (bits.length !== 4 && bits.length !== 5) continue;
     const side = bits[0].toLowerCase();
     if (!SIDES.includes(side)) continue;
-    const [offset, w, h] = bits.slice(1).map(t => parseFloat(t));
-    if (![offset, w, h].every(Number.isFinite)) continue;
-    if (!(w > 0.4) || !(h > 0.4)) continue;
-    out.push({ side, offset, w, h });
+    const nums = bits.slice(1).map(t => parseFloat(t));
+    if (!nums.every(Number.isFinite)) continue;
+    const [offset, w, h] = nums;
+    const drop = nums.length === 4 ? nums[3] : 0;
+    if (!(w > 0.4) || !(h > 0.4) || drop < 0) continue;
+    out.push({ side, offset, w, h, drop });
     if (out.length >= limit) break;
   }
   return out;
@@ -156,7 +258,9 @@ function plan(p, ctx = {}) {
   const standoffOD = clamp(num(p.standoffOD, screw.boss), screw.pilot + 1.2, 16);
 
   const lidStyle = p.lidStyle === 'screw' ? 'screw' : 'friction';
-  const lidFit = clamp(num(p.lidFit, FIT.slide), 0.05, 0.8);
+  // A friction lid is a PRESS fit: 0.10 mm per side, measured on the printed
+  // Pi 3 B+ case (the 0.25 slide default rattled). See fit.js MEASURED.
+  const lidFit = clamp(num(p.lidFit, FIT.press), 0.05, 0.8);
   const lipH = clamp(num(p.lipH, 3), 0.6, Math.max(0.6, clearAbove * 0.8));
   const lipW = clamp(Math.min(wallT * 0.7, 2.4), 0.6, 3);
 
@@ -192,15 +296,18 @@ function plan(p, ctx = {}) {
   }
 
   // Ports. The cutout's floor is the board's top surface, because that is
-  // where a connector's body actually starts.
+  // where a connector's body actually starts — unless the entry drops it, for
+  // the SD slot on a Pi's underside. A drop never reaches into the floor slab.
   const ports = [];
   for (const q of parsePorts(p.ports)) {
     const along = (q.side === 'left' || q.side === 'right') ? inD : inW;
+    const drop = clamp(q.drop, 0, Math.max(0, zBoardTop - floorT));
+    const z0 = zBoardTop - drop;
     const w = clamp(q.w, 0.6, Math.max(0.6, along - 2 * CORNER_KEEP));
-    const h = clamp(q.h, 0.6, Math.max(0.6, wallTop - zBoardTop + 2));
+    const h = clamp(q.h, 0.6, Math.max(0.6, wallTop - z0 + 2));
     const lim = Math.max(0, (along - w) / 2 - CORNER_KEEP);
     const off = clamp(q.offset, -lim, lim);
-    ports.push({ side: q.side, off, w, h, z0: zBoardTop });
+    ports.push({ side: q.side, off, w, h, z0, drop });
   }
 
   // Vents: one row of stadium slots down the middle of the lid, inside
@@ -237,6 +344,24 @@ function plan(p, ctx = {}) {
     : null;
   const lidClears = clearAbove - tallest;
 
+  // A screw post runs the full height of the cavity, so it must stand clear
+  // of the board's footprint or the board cannot go in. Distance from the post
+  // centre to the board's rectangle, less the post's radius; negative means
+  // the post is inside the board. The board's corner radius is ignored, which
+  // errs on the side of flagging a graze.
+  const postBoardGap = posts.length
+    ? Math.min(...posts.map(([x, y]) => Math.hypot(
+      Math.max(0, Math.abs(x) - boardL / 2), Math.max(0, Math.abs(y) - boardW / 2)))) - postOD / 2
+    : null;
+  // The side clearance at which the posts would just clear the board.
+  const clearSideForPosts = postInset + postOD / 2;
+
+  // A friction lid's lip runs right round the inside of the wall, so a cutout
+  // that reaches up past the lip line has the lip landing in the hole.
+  const lipLine = lidStyle === 'friction' ? wallTop - lipH : Infinity;
+  const lipInCutout = ports.filter(q => q.z0 + q.h > lipLine + 1e-6)
+    .map(q => ({ ...q, by: q.z0 + q.h - lipLine }));
+
   return {
     sf, seg, segC, preset, boardL, boardW, boardT, tallest,
     wallT, floorT, clearSide, clearAbove, lidT, corner, innerCorner,
@@ -244,7 +369,7 @@ function plan(p, ctx = {}) {
     standoffH, standoffOD, lidStyle, lidFit, lipH, lipW,
     zBoard, zBoardTop, wallTop, cavityH,
     holes, posts, postOD, ports, vents, ventW, ventGap, ventSlots,
-    part, standoffGap, lidClears,
+    part, standoffGap, lidClears, postBoardGap, clearSideForPosts, lipInCutout,
   };
 }
 
@@ -441,6 +566,13 @@ function build(p, ctx = {}) {
   } else {
     analysis.push(`Lid clears the tallest component by ${L.lidClears.toFixed(1)} mm (${L.tallest} mm part under ${L.clearAbove} mm of headroom).`);
   }
+  if (L.postBoardGap !== null) {
+    if (L.postBoardGap < 0) {
+      analysis.push(`Screw posts stand INSIDE the board's footprint by ${(-L.postBoardGap).toFixed(1)} mm — the board cannot go in. Use the friction lid, or a side clearance of at least ${L.clearSideForPosts.toFixed(1)} mm.`);
+    } else {
+      analysis.push(`Screw posts clear the board's corners by ${L.postBoardGap.toFixed(1)} mm.`);
+    }
+  }
 
   return {
     mesh: laid.mesh,
@@ -488,7 +620,16 @@ function validate(p) {
   }
   if (String(p.ports ?? '').trim() && parsePorts(p.ports).length === 0) {
     issues.push({ param: 'ports', severity: 'warn',
-      message: 'No port cutouts could be read. Each is "side:offset:width:height", for example "right:14:16:11" — side is left, right, front or back.' });
+      message: 'No port cutouts could be read. Each is "side:offset:width:height", for example "right:19:15.5:17.5" — side is left, right, front or back. A fifth number drops the cutout floor below the board top.' });
+  }
+  if (L.postBoardGap !== null && L.postBoardGap < 0) {
+    issues.push({ param: 'lidStyle', severity: 'error',
+      message: `The corner screw posts stand inside the board's footprint by ${(-L.postBoardGap).toFixed(1)} mm, so the board cannot go in. Use the friction lid, or widen the side clearance to at least ${L.clearSideForPosts.toFixed(1)} mm.` });
+  }
+  if (L.lipInCutout.length) {
+    const worst = L.lipInCutout.reduce((a, b) => (b.by > a.by ? b : a));
+    issues.push({ param: 'clearAbove', severity: 'warn',
+      message: `The lid's lip drops ${worst.by.toFixed(1)} mm into the ${worst.side} port cutout at ${worst.off} mm — it will land on whatever is plugged in there. Add that much headroom, or shorten the cutout.` });
   }
   if (L.standoffH > 0 && L.standoffOD <= L.screw.pilot + 1) {
     issues.push({ param: 'standoffOD', severity: 'warn',
@@ -513,7 +654,7 @@ function hints(p, ctx = {}) {
     notes.push(`Standoff pilots are ${L.screw.pilot} mm for self-tapping ${L.screw.label} screws straight into the plastic — no inserts, no nuts. Drill out to ${L.screw.clear} mm if you would rather use a nut underneath.`);
   }
   if (L.lidStyle === 'friction') {
-    notes.push(`The lip is ${L.lidFit.toFixed(2)} mm under the opening per side. ${fitNote('slide')} If it is tight, sand the lip rather than reprinting the box.`);
+    notes.push(`The lip is ${L.lidFit.toFixed(2)} mm under the opening per side. ${fitNote('press')} If it is tight, sand the lip rather than reprinting the box; if it rattles, reprint the lid alone a step tighter.`);
   } else {
     notes.push(`Four ${L.screw.clear} mm clearance holes in the lid over ${L.screw.pilot} mm pilots in the posts — ${L.screw.label} screws about ${Math.round(L.wallTop - L.floorT + L.lidT)} mm long.`);
   }
@@ -529,7 +670,7 @@ export default {
   category: 'Utility',
   blurb: 'A case for a circuit board: standoffs on your hole pattern, cutouts for the ports, a lid that clips or screws on.',
   description:
-    'A box built around a board rather than around a number. Pick a Raspberry Pi 4 or 5, a Pi Zero or an ESP32 dev board and the ' +
+    'A box built around a board rather than around a number. Pick a Raspberry Pi 4, 5 or 3 B+, a Pi Zero or an ESP32 dev board and the ' +
     'outline and mounting pattern come with it; or give it your own size and a list of hole positions measured from the centre of ' +
     'the board. Standoffs rise from the floor with pilot holes for self-tapping screws, port cutouts are placed by side and offset ' +
     'with their floor at the board\'s top surface where a connector actually starts, and the lid either clips on with a friction ' +
@@ -537,16 +678,16 @@ export default {
     'left between the nearest standoff and the wall, and whether the lid clears the tallest component you told it about.',
   version: 1,
   params: [
-    { key: 'board', label: 'Board', type: 'enum', def: 'pi4', group: 'Board',
+    { key: 'board', label: 'Board', type: 'enum', def: 'pi4', group: 'Board', carries: (v) => boardCarries(v),
       options: [
         { v: 'pi4', label: 'Raspberry Pi 4 B', help: '85 × 56 mm, 58 × 49 mm holes.' },
         { v: 'pi5', label: 'Raspberry Pi 5', help: 'Same outline and holes as the Pi 4.' },
-        { v: 'pi3bplus', label: 'Raspberry Pi 3 B+', help: 'Same outline and holes as the Pi 4 — but the ports are in different places.' },
+        { v: 'pi3bplus', label: 'Raspberry Pi 3 B+', help: 'Same outline and holes as the Pi 4 — but the ports are in different places. The preset has them.' },
         { v: 'pizero', label: 'Pi Zero / Zero 2 W', help: '65 × 30 mm, 58 × 23 mm holes.' },
         { v: 'esp32', label: 'ESP32 DevKit (38-pin)', help: 'Dev boards vary a lot — measure yours.' },
         { v: 'custom', label: 'Custom board', help: 'Type the size and hole positions yourself.' },
       ],
-      help: 'A known board brings its outline and hole pattern with it. Everything else stays yours.' },
+      help: 'A known board brings its outline, holes, port cutouts, tallest component and headroom with it. Wall, floor, screws and vents stay yours.' },
     { key: 'boardL', label: 'Board length', type: 'number', def: 85, min: 15, max: 170, step: 0.5, unit: 'mm', group: 'Board',
       showIf: (p) => !BOARDS[p.board], help: 'The long side of the board, X in the case.' },
     { key: 'boardW', label: 'Board width', type: 'number', def: 56, min: 15, max: 170, step: 0.5, unit: 'mm', group: 'Board',
@@ -583,7 +724,7 @@ export default {
       help: 'Outside of the boss. Wider is stronger and eats more board area.' },
 
     { key: 'ports', label: 'Port cutouts', type: 'text', def: 'right:14:16:11; back:20:9:4', maxLength: 240, group: 'Ports',
-      help: 'One per entry: "side:offset:width:height". Side is left, right, front or back; offset is millimetres from the middle of that side; the cutout starts at the top of the board.' },
+      help: 'One per entry: "side:offset:width:height". Side is left, right, front or back; offset is millimetres from the middle of that side; the cutout starts at the top of the board. An optional fifth number drops its floor that far below the board top, for a connector on the underside such as a Pi\'s SD slot.' },
 
     { key: 'vents', label: 'Vents', type: 'bool', def: true, group: 'Ventilation',
       help: 'A row of slots down the lid. Worth it for anything that gets warm.' },
@@ -599,8 +740,8 @@ export default {
       ],
       help: 'The same two closures the box generator offers, minus the round threaded cap — a rectangular enclosure cannot use one.' },
     { key: 'lidT', label: 'Lid thickness', type: 'number', def: 2, min: 0.8, max: 8, step: 0.2, unit: 'mm', group: 'Lid' },
-    { key: 'lidFit', label: 'Lip clearance', type: 'number', def: FIT.slide, min: 0.05, max: 0.8, step: 0.05, unit: 'mm', group: 'Lid',
-      showIf: (p) => p.lidStyle !== 'screw', help: `Gap between the lip and the inside of the box, per side. ${fitNote('slide')}` },
+    { key: 'lidFit', label: 'Lip clearance', type: 'number', def: FIT.press, min: 0.05, max: 0.8, step: 0.05, unit: 'mm', group: 'Lid',
+      showIf: (p) => p.lidStyle !== 'screw', help: `Gap between the lip and the inside of the box, per side. A friction lid wants a press fit: ${fitNote('press')} 0.25 rattled.` },
     { key: 'lipH', label: 'Lip depth', type: 'number', def: 3, min: 0.6, max: 12, step: 0.5, unit: 'mm', group: 'Lid',
       showIf: (p) => p.lidStyle !== 'screw', help: 'How far the lip drops into the box. Deeper holds better and needs more headroom.' },
 
@@ -613,26 +754,25 @@ export default {
       help: 'Both are laid out flat side by side, ready to slice as one plate.' },
   ],
   presets: [
+    // The board presets take their board-specific values from the board
+    // table (boardCarries), so choosing the board from the menu and choosing
+    // the preset agree by construction.
     { name: 'Raspberry Pi 4', values: {
-      board: 'pi4', boardT: 1.6, tallest: 16, wallT: 2.4, floorT: 2, clearSide: 1.5, clearAbove: 18, corner: 3,
-      screw: 'm25', standoffH: 4, standoffOD: 5.5,
-      ports: 'right:14:16:11; right:-12:16:11; back:20:9:4; front:0:22:13',
-      vents: true, ventW: 2.5, ventGap: 3, lidStyle: 'screw', lidT: 2, part: 'both' } },
-    { name: 'Pi 3 B+ (measure your ports)', values: {
-      board: 'pi3bplus', boardT: 1.6, tallest: 16, wallT: 2.4, floorT: 2, clearSide: 1.5, clearAbove: 18, corner: 3,
-      screw: 'm25', standoffH: 4, standoffOD: 5.5,
-      ports: '',
-      vents: true, ventW: 2.5, ventGap: 3, lidStyle: 'screw', lidT: 2, part: 'both' } },
+      board: 'pi4', boardT: 1.6, wallT: 2.4, floorT: 2, clearSide: 1.5, corner: 3,
+      screw: 'm25', standoffH: 4, standoffOD: 5.5, ...boardCarries('pi4'),
+      vents: true, ventW: 2.5, ventGap: 3, lidT: 2, lidFit: FIT.press, lipH: 3, part: 'both' } },
+    { name: 'Raspberry Pi 3 B+', values: {
+      board: 'pi3bplus', boardT: 1.6, wallT: 2.4, floorT: 2, clearSide: 1.5, corner: 3,
+      screw: 'm25', standoffH: 4, standoffOD: 5.5, ...boardCarries('pi3bplus'),
+      vents: true, ventW: 2.5, ventGap: 3, lidT: 2, lidFit: FIT.press, lipH: 3, part: 'both' } },
     { name: 'Pi Zero, slim', values: {
-      board: 'pizero', boardT: 1.6, tallest: 6, wallT: 2, floorT: 1.6, clearSide: 1.2, clearAbove: 8, corner: 2.5,
-      screw: 'm25', standoffH: 3, standoffOD: 5,
-      ports: 'right:0:9:4; left:-8:8:4',
-      vents: false, lidStyle: 'friction', lidT: 1.6, lidFit: FIT.slide, lipH: 2.5, part: 'both' } },
+      board: 'pizero', boardT: 1.6, wallT: 2, floorT: 1.6, clearSide: 1.2, corner: 2.5,
+      screw: 'm25', standoffH: 3, standoffOD: 5, ...boardCarries('pizero'),
+      vents: false, lidT: 1.6, lidFit: FIT.press, lipH: 2.5, part: 'both' } },
     { name: 'ESP32 project box', values: {
-      board: 'esp32', boardT: 1.6, tallest: 14, wallT: 2.4, floorT: 2, clearSide: 3, clearAbove: 16, corner: 4,
-      screw: 'm3', standoffH: 5, standoffOD: 6,
-      ports: 'front:0:12:6',
-      vents: true, ventW: 3, ventGap: 4, lidStyle: 'friction', lidT: 2, lidFit: FIT.slide, lipH: 3, part: 'both' } },
+      board: 'esp32', boardT: 1.6, wallT: 2.4, floorT: 2, clearSide: 3, corner: 4,
+      screw: 'm3', standoffH: 5, standoffOD: 6, ...boardCarries('esp32'),
+      vents: true, ventW: 3, ventGap: 4, lidT: 2, lidFit: FIT.press, lipH: 3, part: 'both' } },
     { name: 'Blank tray, no board', values: {
       board: 'custom', boardL: 100, boardW: 70, holes: '', boardT: 1.6, tallest: 0,
       wallT: 3, floorT: 2.4, clearSide: 0.5, clearAbove: 24, corner: 6,

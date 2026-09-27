@@ -13,13 +13,13 @@ stack with everyone else's, and baseplates that actually hold them.
       every numeric parameter at its min AND its max and asserts the result is
       still a watertight solid resting on the plate. A generator that only works
       at its defaults fails here.
-  CHECK: node tests/gen-gridfinity.test.mjs 2>&1 | grep 'parameter sweep'
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/gen-gridfinity.test.mjs 2>&1 | grep 'parameter sweep'
   EXPECT: /builds, 0 defects/
   EVIDENCE: `ok   parameter sweep: every extreme still yields a watertight solid (54 builds)  — 54 builds, 0 defects` (conformance contributes 70 of the 266 checks; all 70 green)
 
 - [x] G3: at least 45 checks in the suite, of which at least 20 are
       domain-specific (not from the shared harness)
-  CHECK: node tests/gen-gridfinity.test.mjs 2>&1 | grep -c '^  ok '
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/gen-gridfinity.test.mjs 2>&1 | grep -c '^  ok '
   EXPECT: /^(4[5-9]|[5-9][0-9]|[1-9][0-9][0-9]+)$/
   EVIDENCE: `266`. Conformance alone prints 70, so **196 are domain-specific** (`266 − 70`, both counted with the same grep).
 

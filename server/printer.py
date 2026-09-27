@@ -30,7 +30,7 @@ import time
 import urllib.error
 import urllib.request
 
-GLADYS_DIR = os.path.expanduser(os.environ.get("BLUESHEET_GLADYS_DIR", "~/gladys"))
+GLADYS_DIR = os.path.expanduser("~/explorer/projects/gladys")
 GLADYS_API = os.environ.get("BLUESHEET_GLADYS_API", "http://127.0.0.1:8128")
 TOKEN_TTL = 180.0
 

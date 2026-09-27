@@ -13,13 +13,13 @@ rather than utility, and the reason Bluesheet is worth building rather than buyi
       every numeric parameter at its min AND its max and asserts the result is
       still a watertight solid resting on the plate. A generator that only works
       at its defaults fails here.
-  CHECK: node tests/gen-datasculpt.test.mjs 2>&1 | grep 'parameter sweep'
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/gen-datasculpt.test.mjs 2>&1 | grep 'parameter sweep'
   EXPECT: /builds, 0 defects/
   EVIDENCE: ok   parameter sweep: every extreme still yields a watertight solid (66 builds)  — 66 builds, 0 defects
 
 - [ ] G3: at least 34 checks in the suite, of which at least 14 are
       domain-specific (not from the shared harness)
-  CHECK: node tests/gen-datasculpt.test.mjs 2>&1 | grep -c '^  ok '
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/gen-datasculpt.test.mjs 2>&1 | grep -c '^  ok '
   EXPECT: /^(3[4-9]|[4-9][0-9]|[1-9][0-9][0-9]+)$/
   EVIDENCE: pending
 
@@ -32,7 +32,7 @@ rather than utility, and the reason Bluesheet is worth building rather than buyi
   EVIDENCE: pending
 
 - [ ] G5: the statistical treatment is right, and it matters more than the shape.
-      The Core Sample project note is the source for this: it
+      Read /home/claude/vault/projects/'Core Sample.md' before writing this: it
       documents that **rank-normalising** the series, not log-normalising it, is
       what keeps a savagely skewed series legible, and that a single outlier
       flattens everything else into noise. Offer linear / rank / log / clipped

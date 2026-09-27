@@ -65,7 +65,7 @@ function pos(v, name) {
 // ---------------------------------------------------------------------------
 
 /** opts.segFactor, or opts.ctx.segFactor, or 1. Clamped to something sane. */
-function segFactorOf(opts = {}) {
+export function segFactorOf(opts = {}) {
   const raw = opts.segFactor !== undefined ? opts.segFactor
     : (opts.ctx && opts.ctx.segFactor !== undefined ? opts.ctx.segFactor : 1);
   num(raw, 'segFactor');
@@ -73,8 +73,14 @@ function segFactorOf(opts = {}) {
   return Math.min(8, raw);
 }
 
-/** A segment count scaled by segFactor and floored at `min`. */
-function nseg(count, sf, min = 3) {
+/** A segment count scaled by segFactor and floored at `min`.
+ *
+ *  Exported because joint.js has to reproduce `sphere()`'s latitudes exactly to
+ *  put a stalk on a ball without a boolean, and a second copy of this formula
+ *  is a copy that drifts. Generators keep their own `nseg` on purpose — the
+ *  variants are not equivalent (see scalar.js) — but a caller reproducing a
+ *  builder's own tessellation must use the builder's own arithmetic. */
+export function nseg(count, sf, min = 3) {
   num(count, 'segment count');
   return Math.max(min, Math.round(count * sf));
 }

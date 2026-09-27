@@ -637,7 +637,7 @@ export default {
         { v: 'text', label: 'Text', help: 'Shown as a note when scanned.' },
       ],
       help: 'What the code carries. Wi-Fi builds the standard WIFI: string for you.' },
-    { key: 'text', label: 'Text', type: 'text', def: 'https://example.com/', maxLength: MAX_TEXT, group: 'Content',
+    { key: 'text', label: 'Text', type: 'text', def: 'https://bluesheet.local/', maxLength: MAX_TEXT, group: 'Content',
       showIf: (p) => p.content !== 'wifi',
       help: `The link or note. Up to ${MAX_TEXT} bytes at the lowest error correction; short is better, because fewer modules means bigger ones.` },
     { key: 'ssid', label: 'Network name', type: 'text', def: 'Guest WiFi', maxLength: 32, group: 'Content',
@@ -704,7 +704,7 @@ export default {
       ecc: 'M', size: 70, plate: 2, relief: 0.8, quiet: 4, style: 'raised', corner: 4, frame: true, frameWidth: 2.5,
       caption: 'Guest Wi-Fi', captionHeight: 6, captionFont: DEFAULT_FONT, hang: true, holeDia: 4.5 } },
     { name: 'Link coaster', values: {
-      content: 'url', text: 'https://example.com/', ecc: 'Q', size: 90, plate: 3, relief: 0.6, quiet: 4,
+      content: 'url', text: 'https://bluesheet.local/', ecc: 'Q', size: 90, plate: 3, relief: 0.6, quiet: 4,
       style: 'recessed', corner: 45, frame: false, caption: '', hang: false } },
     { name: 'Text tag', values: {
       content: 'text', text: 'M3 × 12 cap screws', ecc: 'L', size: 34, plate: 1.6, relief: 0.6, quiet: 2,

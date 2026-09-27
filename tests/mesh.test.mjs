@@ -137,6 +137,38 @@ suite('mesh');
   // A weld epsilon larger than the feature must not silently destroy the solid without saying so.
   const coarse = F.cube(0.5).weld(1);
   check('an over-coarse weld collapses rather than lying', coarse.triCount === 0, `${coarse.triCount} tris left`);
+
+  // weld(eps, { near: true }): what the checkers use (Task 13b). The rounding
+  // weld splits two copies of one vertex a hair apart when they straddle a
+  // cell boundary, and reports a hole that moves when the mesh moves.
+  const E = 1e-5;
+  const openEdges = (w) => {
+    const n = new Map();
+    for (let t = 0; t < w.triCount; t++) for (const [u, v] of [[0, 1], [1, 2], [2, 0]]) {
+      const a = w.tris[t * 3 + u], b = w.tris[t * 3 + v], k = a < b ? `${a},${b}` : `${b},${a}`;
+      n.set(k, (n.get(k) || 0) + 1);
+    }
+    let open = 0, over = 0;
+    for (const c of n.values()) { if (c === 1) open++; else if (c > 2) over++; }
+    return { open, over };
+  };
+  // The cube as a triangle soup, every corner its own copy, placed so x sits
+  // 1e-9 under a half-cell boundary; one copy of one corner nudged over it.
+  const soup = un.translate(0.5 * E - 1e-9, 0.5 * E - 1e-9, 0.5 * E - 1e-9);
+  soup.positions[0] += 2e-9;
+  check('FALSIFIER: the rounding weld opens a hole across a cell boundary', openEdges(soup.weld(E)).open > 0,
+    `${openEdges(soup.weld(E)).open} open edges`);
+  check('weld near closes it: the copies are 2e-9 apart', openEdges(soup.weld(E, { near: true })).open === 0,
+    `${openEdges(soup.weld(E, { near: true })).open} open edges`);
+  const crack = un.translate(0, 0, 0); crack.positions[0] += 2e-5;
+  check('weld near still sees a real 2e-5 mm crack', openEdges(crack.weld(E, { near: true })).open > 0,
+    `${openEdges(crack.weld(E, { near: true })).open} open edges`);
+  const holed = new Mesh(un.positions.slice(), un.tris.slice(3));
+  check('weld near still sees a missing triangle', openEdges(holed.weld(E, { near: true })).open === 3,
+    `${openEdges(holed.weld(E, { near: true })).open} open edges`);
+  const doubled = Mesh.merge([F.cube(10), F.cube(10)]);
+  check('weld near still sees a doubled mesh', openEdges(doubled.weld(E, { near: true })).over > 0,
+    `${openEdges(doubled.weld(E, { near: true })).over} overused edges`);
 }
 
 // ---- measurement ---------------------------------------------------------

@@ -1,7 +1,7 @@
 # Gates: G21 — js/gen/skadis.js (IKEA Skådis pegboard accessories)
 
-Scope: The accessory family for a board the owner already has and has already
-printed for. The object is not "a hook" — it is the *mount*, eleven times over. Get the
+Scope: The accessory family for a board Sam already owns and has already printed
+for. The object is not "a hook" — it is the *mount*, eleven times over. Get the
 tab right and every type is a different arm on the same proven interface; get it
 wrong and eleven types are eleven parts that fall off the wall.
 
@@ -11,8 +11,8 @@ Skådis openings are **not round holes**. Every one is a vertical obround
 **5 mm wide × 15 mm tall with 2.5 mm end radii**, on a **40 mm** grid with
 alternate columns dropped **20 mm**, in a board about **5 mm** thick. Those
 figures are community-measured — IKEA publishes nothing — but they are
-corroborated by two independent sources and, more usefully, by a dozen printed
-MakerWorld accessories that all fitted the real board. They are
+corroborated by two independent sources and, more usefully, by Sam having
+printed a dozen MakerWorld accessories that all fitted his board. They are
 therefore the defaults, and they are also **parameters**, so a board that
 disagrees is one number away from working rather than a rewrite.
 
@@ -44,8 +44,8 @@ by the leg's height is the deliberate release.
 **This is not what the first draft did**, and the difference is the whole
 mechanism. The first draft put the bridge at the TOP and hung a shallow 2.4 mm
 wedge below it — mechanically defensible, wrong way up, and with far too little
-grip behind the board. Every gate below passed on it. What caught it was a
-photograph of a bin actually printed and hung on the real board.
+grip behind the board. Every gate below passed on it. What caught it was Sam
+sending a photograph of a bin he has actually printed and hung on this board.
 **Verify the spec, not your reasoning about the spec** — the geometry that is
 known to fit beats the geometry that ought to.
 
@@ -76,17 +76,17 @@ island or a 90° overhang. Both families below are chosen so that it is neither.
 ## Gates
 
 - [x] G1: the suite passes
-  CHECK: node tests/gen-skadis.test.mjs 2>&1 | tail -3
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/gen-skadis.test.mjs 2>&1 | tail -3
   EXPECT: RESULT: PASS
   EVIDENCE: gen skadis: 249/249 passed | RESULT: PASS
 
 - [x] G2: the shared contract harness passes with zero sweep defects
-  CHECK: node tests/gen-skadis.test.mjs 2>&1 | grep 'parameter sweep'
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/gen-skadis.test.mjs 2>&1 | grep 'parameter sweep'
   EXPECT: /builds, 0 defects/
   EVIDENCE: ok parameter sweep: every extreme still yields a watertight solid (85 builds) — 85 builds, 0 defects
 
 - [x] G3: at least 40 checks, of which at least 20 are domain-specific
-  CHECK: node tests/gen-skadis.test.mjs 2>&1 | grep -c '^  ok '
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/gen-skadis.test.mjs 2>&1 | grep -c '^  ok '
   EXPECT: /^(4[0-9]|[5-9][0-9]|[1-9][0-9][0-9]+)$/
   EVIDENCE: 249 checks, of which 191 are domain-specific (58 come from the shared conformance harness)
 
@@ -162,7 +162,7 @@ thing and looking at it — which is the same lesson as the nameplate islands in
 [[topics/technical-landmines]], learned again:
 
 - **The tab was upside down.** Bridge at the top, shallow wedge below. Corrected
-  from a photograph of a working part.
+  from Sam's photograph of a working part.
 - **The gauge read 3-3-3-2-1.** Its identifying marks were laid on a fixed pitch
   from the bottom and the longer rows ran up into the tabs. Now spread to fill
   the clear band, and counted by a test.
@@ -180,7 +180,7 @@ enforces, and its help text now says so.
 
 ## Deferred
 
-**G22 — Gridfinity bin rail.** A Skådis-mounted rail that Bluesheet's own Gridfinity
+**G25 — Gridfinity bin rail.** A Skådis-mounted rail that Bluesheet's own Gridfinity
 bins hang from. Deferred deliberately: it is the one accessory that reaches
 across into another generator's profile, and a rail 0.2 mm out makes every bin
 you own useless rather than one accessory. It needs its own gate and its own

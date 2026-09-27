@@ -1,10 +1,9 @@
 # Bluesheet
 
-A parametric printable-object foundry. Design in a browser, slice on the machine
-it runs on, print on the printer in the cupboard.
+A parametric printable-object foundry. Design in a browser, slice on this laptop,
+print on the A1 mini in the cupboard.
 
-There is a read-only public copy of the workshop — everything except the slicer,
-the printer and the saved-design library — at https://scratch-it.co.uk/bluesheet
+    http://bluesheet.local        (or http://claudespace.local:8132)
 
 ## What it is
 
@@ -16,16 +15,6 @@ data sculptures. Move the numbers, watch the solid rebuild, slice it, print it.
 It is deliberately not CAD. There is no sketch plane and no constraint solver,
 because the things worth printing at home are mostly not one-off shapes — they
 are known shapes at your dimensions, and typing four numbers beats drawing.
-
-## Running it
-
-    python3 server.py            # then http://localhost:8132
-
-Python 3.11+ and (for the tests) Node 18+. No pip install, no npm install — the
-server uses only the standard library and the browser loads the ES modules
-directly. Slicing and printing additionally want OrcaSlicer's AppImage and a
-printer; everything else — the generators, the viewer, the analysis, the STL
-export — works without either.
 
 ## Layout
 
@@ -104,20 +93,8 @@ workshop). Renders for the landing page come from `tools/contact-sheet.mjs`.
 ## Fit clearances
 
 Every generator's default clearance comes from one table, `js/kernel/fit.js`
-(press 0.10 · snug 0.15 · push 0.20 · slide 0.25 · loose 0.30 · board 0.35 ·
+(press 0.10 · snug 0.15 · push 0.20 · slide 0.25 · loose 0.30 · board 0.35 · free 0.35 ·
 drop 0.50 mm). `MEASURED` there records the one print that has confirmed a
 value on a named machine, material and date; until it is set the help text
-says the number is a guess. The Skådis fit gauge is the print that measures it.
-
-## What is not in this repository
-
-Runtime state is left out, because it belongs to one machine rather than to the
-code: `state/` (the plate, the print log, the Made log and its photos),
-`library/` (saved designs, which can embed the photograph a lithophane was made
-from), and the elevation and geocoder caches. The server creates all of it on
-first run.
-
-## Licence
-
-MIT — see `LICENSE`. The bundled fonts keep their own licences, which sit beside
-them in `assets/fonts` and `assets/webfonts`.
+says the number is a guess. The Skådis gauge measures pegboard fit. `free` is the provisional print-in-place
+clearance; the planned creature joint gauge must be printed before it is calibrated.

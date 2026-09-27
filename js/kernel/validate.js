@@ -49,7 +49,10 @@ const weldCache = new WeakMap();
 function weldedOf(mesh, eps) {
   const hit = weldCache.get(mesh);
   if (hit && hit.eps === eps && hit.vc === mesh.vertCount && hit.tc === mesh.triCount) return hit.w;
-  const w = mesh.weld(eps);
+  // `near`: a verdict that moves when the mesh moves is the grid's, not the
+  // mesh's (see Mesh#weld). tests/lib/meshcheck.mjs welds the same way; the
+  // two are a cross-check and must agree.
+  const w = mesh.weld(eps, { near: true });
   weldCache.set(mesh, { eps, vc: mesh.vertCount, tc: mesh.triCount, w });
   return w;
 }

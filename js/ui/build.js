@@ -264,9 +264,14 @@ export class Builder {
 
   // ---- STL ---------------------------------------------------------------
   /** Binary STL of the current request, built where the mesh already lives. */
-  stl(req, name) {
+  stl(req, name) { return this._file('stl', req, name); }
+
+  /** A Bambu Studio project 3mf of the current request, colour change set. */
+  bambu(req, name) { return this._file('bambu', req, name); }
+
+  _file(type, req, name) {
     const jobId = ++this.jobId;
-    const msg = { type: 'stl', jobId, ...req, name };
+    const msg = { type, jobId, ...req, name };
     return new Promise((resolve, reject) => {
       this._stlWaiters = this._stlWaiters || new Map();
       this._stlWaiters.set(jobId, { resolve, reject });

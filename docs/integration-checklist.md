@@ -44,6 +44,14 @@ Things that only bite once every part exists, in the order they bite.
 - [ ] `mesh.toSTL(provenance)` is what the app calls, so the header carries
       `Bluesheet <gen> v<n> #<hash>` rather than a bare name.
 
+## Fleet
+- [ ] healthcheck `SERVICES` array (everything else derives from it)
+- [ ] network monitor `SERVICE_NAMES` — the one that fails silently
+- [ ] dashboard card
+- [ ] nftables 8132 open to 192.168.0.0/24
+- [ ] `gen-caddyfile.sh` for `bluesheet.local` + mDNS
+- [ ] `status.py` needs nothing: it title-cases the healthcheck name.
+
 ## Before the print
 - [ ] Plate is clear (workshop camera, not assumption)
 - [ ] Filament matches the sliced profile — PLA profile with PLA loaded

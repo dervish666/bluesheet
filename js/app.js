@@ -99,7 +99,15 @@ const builder = new Builder({
 });
 
 const panel = new ParamPanel($('[data-param-groups]'), {
-  onChange: (key, value) => { S.params[key] = value; afterParamChange(); },
+  onChange: (key, value) => {
+    S.params[key] = value;
+    // An enum that carries sibling values (a board bringing its ports) applies
+    // them here, on a change the user made — never on a preset or a reload,
+    // which set the whole record at once.
+    const q = S.gen.params.find(p => p.key === key);
+    if (q && typeof q.carries === 'function') Object.assign(S.params, q.carries(value, S.params) || {});
+    afterParamChange();
+  },
   onFocus: (q) => setFocusParam(q),
   onCommit: () => rebuild(),
 });
@@ -236,6 +244,7 @@ function afterParamChange() {
   const issues = validateParams(S.gen, S.params);
   analysis.set({ issues });
   panel.setValues(S.params);
+  syncPresetRow();
   updateFocusDim();
   rebuild({ force: wasImported });
 }
@@ -259,6 +268,7 @@ function onMesh(r) {
   analysis.set({ mesh: { bbox: box }, analysis: null, print: null });
   setSectionRange();
   updateFocusDim();
+  syncBambu();
   if (r.hints && Array.isArray(r.hints.notes) && r.hints.notes.length) {
     status('Ready', r.hints.notes[0]);
   } else {
@@ -333,6 +343,8 @@ async function setGen(id, { params = null, rebuildNow = true } = {}) {
   return r;
 }
 
+const CUSTOM = '__custom';
+
 function renderPresets(gen) {
   const row = $('[data-preset-row]');
   const sel = $('[data-preset-select]');
@@ -341,7 +353,22 @@ function renderPresets(gen) {
   clear(sel);
   sel.appendChild(el('option', { value: '', text: 'Defaults' }));
   for (const p of list) sel.appendChild(el('option', { value: p.name, text: p.name }));
+  // A state, not a choice: the row shows it once the numbers no longer match
+  // any preset, the way the title block already says Custom.
+  sel.appendChild(el('option', { value: CUSTOM, text: 'Custom', disabled: true }));
   sel.value = '';
+}
+
+/** Keep the preset row honest: the preset whose values all match, Defaults
+ *  if nothing has moved, otherwise Custom. */
+function syncPresetRow() {
+  const sel = $('[data-preset-select]');
+  if (!S.gen) return;
+  const hit = (S.gen.presets || []).find(p => Object.entries(p.values).every(([k, v]) => same(S.params[k], v)));
+  if (hit) { sel.value = hit.name; return; }
+  const d = defaultParams(S.gen);
+  const atDefaults = S.gen.params.every(q => same(S.params[q.key], d[q.key]) || (S.params[q.key] === undefined && d[q.key] === undefined));
+  sel.value = atDefaults ? '' : CUSTOM;
 }
 
 $('[data-preset-select]').addEventListener('change', (e) => {
@@ -504,6 +531,88 @@ $('[data-export]').addEventListener('click', async () => {
   }
 });
 
+// ---- Bambu Studio ---------------------------------------------------------
+//
+// A generator that returns meta.colourChangeZ is a two-colour print, and gets a
+// Bambu Studio project with Sam's A1 mini profile and the swap already on the
+// layer slider (js/kernel/bambu.js). Nothing here knows which generators those
+// are: the buttons follow the build's meta, and stay hidden for everything else
+// (a one-colour project would be the plain 3mf again with a profile attached).
+//
+// "Open in Bambu Studio" parks the project on this server and hands Bambu a URL
+// to it through the scheme MakerWorld uses. Bambu downloads it itself, so the
+// URL is this page's own origin: the same machine or the LAN, never the
+// internet. Bambu asks "not from a trusted site, open anyway?" for anything
+// that is not MakerWorld; that dialog is Bambu's and cannot be skipped.
+
+function hasColourChange() {
+  const meta = !S.imported && S.result && S.result.meta;
+  return !!meta && Number.isFinite(meta.colourChangeZ);
+}
+
+// Looked up on each call, not held in a const: onMesh can call this from
+// anywhere in the file's order of evaluation.
+function syncBambu() {
+  const on = hasColourChange();
+  $('[data-export-bambu]').hidden = !on;
+  $('[data-open-bambu]').hidden = !on;
+}
+
+function bambuName() {
+  const slug = objectName().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  return `${S.gen.id}-${slug || 'object'}`;
+}
+
+async function bambuProject() {
+  if (!S.gen || !hasColourChange()) throw new Error('this object declares no colour change');
+  return builder.bambu(request(), objectName());
+}
+
+$('[data-export-bambu]').addEventListener('click', async () => {
+  try {
+    const bytes = await bambuProject();
+    const name = `${bambuName()}.3mf`;
+    download(new Blob([bytes], { type: 'model/3mf' }), name);
+    status('Saved', `${name}: Bambu project, filament change at ${S.result.meta.colourChangeZ} mm, ${(bytes.byteLength / 1024).toFixed(0)} kB`);
+  } catch (e) {
+    status('Failed', e.message, 'error');
+  }
+});
+
+function base64Of(bytes) {
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+
+/** bambustudioopen://<url> is what Bambu registers on macOS (GUI_App::MacOpenURL);
+ *  Windows and Linux take bambustudio://open?file=<url>. Both are URL-encoded. */
+function bambuSchemeUrl(fileUrl) {
+  const plat = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '';
+  return /mac/i.test(plat)
+    ? `bambustudioopen://${encodeURIComponent(fileUrl)}`
+    : `bambustudio://open?file=${encodeURIComponent(fileUrl)}`;
+}
+
+$('[data-open-bambu]').addEventListener('click', async () => {
+  try {
+    status('Working', 'Building the Bambu project');
+    const bytes = await bambuProject();
+    const res = await fetch('/api/bambu', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: bambuName(), data: base64Of(bytes) }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || !body.ok) throw new Error(body.error || `the server said ${res.status}`);
+    const fileUrl = new URL(body.url, location.origin).href;
+    location.href = bambuSchemeUrl(fileUrl);
+    status('Sent', `Handed to Bambu Studio. It asks whether to trust ${location.host}; the link lasts ${Math.round(body.ttl / 60)} minutes.`);
+  } catch (e) {
+    status('Failed', e.message, 'error');
+  }
+});
+
 // Naming a design is an inline step in the panel rather than a window.prompt():
 // a modal the browser draws cannot be styled, cannot be reached with a finger on
 // an iPad without the keyboard covering it, and stops the page dead.
@@ -615,6 +724,7 @@ function useImported(obj) {
     triCount: obj.mesh.triCount, repaired: !!obj.repaired, report: obj.report || null,
   };
   plate.hide();
+  syncBambu();
   viewer.setMesh(obj.render || obj.mesh);
   const box = boxOf({ bbox: obj.bbox || obj.mesh.bbox() });
   dims.setBox(box);
@@ -644,6 +754,7 @@ function useImported(obj) {
 function leaveImported() {
   if (!S.imported) return;
   S.imported = null;
+  syncBambu();
   if (S.gen) {
     $('[data-crumb-cat]').textContent = S.gen.category;
     $('[data-crumb-gen]').textContent = S.gen.name;
@@ -785,6 +896,7 @@ const api = {
     if (!q) throw new Error(`no parameter "${key}" on ${S.gen.id}`);
     S.params[key] = (q.type === 'vec2' || q.type === 'image' || q.type === 'series') ? value : coerce(q, value);
     panel.setValues(S.params);
+    syncPresetRow();
     slicePath.invalidate();
     analysis.set({ issues: validateParams(S.gen, S.params) });
     updateFocusDim();

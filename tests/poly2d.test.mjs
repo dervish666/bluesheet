@@ -249,6 +249,18 @@ check('offset never returns an inverted outer ring', (() => {
   }
   return true;
 })());
+{
+  // A frame with an island in its hole: a comic panel with a figure in it. The
+  // hole's probe point used to be the centroid of its largest ear, which lands
+  // on the island, so the island's material voted the whole hole shut and the
+  // frame came back filled solid. Exact answer, miter joins: outer 41², hole
+  // 35², island 17².
+  const frame = [rect(40, 40), reverse(rect(36, 36))];
+  const island = [rect(16, 16)];
+  const o = offset([frame, island], 0.5, { join: 'miter' });
+  near('an island in a hole does not fill the hole (frame + island grown 0.5)',
+    totalArea(o), 41 * 41 - 35 * 35 + 17 * 17, 1e-6);
+}
 
 // A U whose arms merge, and the same U eroded until it dies. Rectilinear, so
 // the mitered areas are exact: A ± P·d + d²(convex − reflex).

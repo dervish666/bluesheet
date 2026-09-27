@@ -145,8 +145,19 @@ export class Mesh {
   place() { const b = this.bbox(); return this.translate(-b.center[0], -b.center[1], -b.min[2]); }
 
   // ---- topology -----------------------------------------------------------
-  /** Merge vertices closer than eps, drop resulting degenerate triangles. */
-  weld(eps = 1e-6) {
+  /** Merge vertices closer than eps, drop resulting degenerate triangles.
+   *
+   *  `near: true` is the version for CHECKING a mesh rather than building one.
+   *  The default rounds each coordinate to a grid of eps, so two vertices a
+   *  billionth apart that straddle a cell boundary stay apart, and the verdict
+   *  moves when the mesh does: a placed creature read 3 boundary edges, the
+   *  same mesh moved 7e-6 mm read none (Task 13). `near` merges a vertex into
+   *  any earlier one within eps, searching the 27 cells around it, so the
+   *  answer no longer depends on where the grid happens to fall. Generators
+   *  keep the rounding weld: their output, and the fingerprints of it, were
+   *  built with it. */
+  weld(eps = 1e-6, { near = false } = {}) {
+    if (near) return this.#weldNear(eps);
     const inv = 1 / Math.max(eps, 1e-12);
     const P = this.positions, V = this.vertCount;
     // Quantise every coordinate to an integer number of eps. These are exact
@@ -184,6 +195,48 @@ export class Mesh {
         if (same(wx[idx], x) && same(wy[idx], y) && same(wz[idx], z)) { remap[v] = idx; break; }
         h = (h + 1) & mask;
       }
+    }
+    const tris = [];
+    for (let t = 0; t < this.triCount; t++) {
+      const a = remap[this.tris[t * 3]], b = remap[this.tris[t * 3 + 1]], c = remap[this.tris[t * 3 + 2]];
+      if (a === b || b === c || a === c) continue;
+      tris.push(a, b, c);
+    }
+    return new Mesh(pos, tris);
+  }
+
+  #weldNear(eps) {
+    const e = Math.max(eps, 1e-12), inv = 1 / e, e2 = e * e;
+    const P = this.positions, V = this.vertCount;
+    let cap = 16;
+    while (cap < V * 2) cap *= 2;
+    const mask = cap - 1;
+    // Open addressing over cells; a cell may hold several representatives,
+    // each its own entry, so a probe walks on past a match to find the rest.
+    const slot = new Int32Array(cap).fill(-1);
+    const cx = new Float64Array(V), cy = new Float64Array(V), cz = new Float64Array(V);
+    const remap = new Int32Array(V);
+    const pos = [];
+    let n = 0;
+    for (let v = 0; v < V; v++) {
+      const x = P[v * 3], y = P[v * 3 + 1], z = P[v * 3 + 2];
+      const ix = Math.floor(x * inv), iy = Math.floor(y * inv), iz = Math.floor(z * inv);
+      let hit = -1;
+      for (let dx = -1; dx <= 1 && hit < 0; dx++) for (let dy = -1; dy <= 1 && hit < 0; dy++) for (let dz = -1; dz <= 1 && hit < 0; dz++) {
+        const kx = ix + dx, ky = iy + dy, kz = iz + dz;
+        for (let h = hash3(kx, ky, kz) & mask; slot[h] >= 0; h = (h + 1) & mask) {
+          const r = slot[h];
+          if (cx[r] !== kx || cy[r] !== ky || cz[r] !== kz) continue;
+          const px = pos[r * 3] - x, py = pos[r * 3 + 1] - y, pz = pos[r * 3 + 2] - z;
+          if (px * px + py * py + pz * pz <= e2) { hit = r; break; }
+        }
+      }
+      if (hit >= 0) { remap[v] = hit; continue; }
+      let h = hash3(ix, iy, iz) & mask;
+      while (slot[h] >= 0) h = (h + 1) & mask;
+      slot[h] = n; cx[n] = ix; cy[n] = iy; cz[n] = iz;
+      pos.push(x, y, z);
+      remap[v] = n++;
     }
     const tris = [];
     for (let t = 0; t < this.triCount; t++) {

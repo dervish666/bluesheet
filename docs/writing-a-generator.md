@@ -16,7 +16,7 @@ import { extrude, cylinder, roundedBox } from '../kernel/builders.js';
 export default {
   id: 'coaster',                 // must equal the filename
   name: 'Coaster',
-  category: 'Kitchen',           // Storage Utility Mechanism Decor Data Kitchen Toys
+  category: 'Kitchen',           // Storage Utility Mechanism Lighting Decor Data Kitchen Toys
   blurb: 'A drinks coaster with a lip, in any shape you like.',
   description: 'Longer prose for the panel. Say what it is for and what the ' +
                'non-obvious parameters do.',
@@ -28,7 +28,7 @@ export default {
     { key: 'lip', label: 'Lip', type: 'bool', def: true, group: 'Shape',
       help: 'A raised rim that catches condensation.' },
   ],
-  presets: [
+  presets: [   // worked examples; the row shows "Custom" once any value diverges
     { name: 'Pint',   values: { dia: 95, lip: true } },
     { name: 'Mug',    values: { dia: 80, lip: false } },
     { name: 'Teapot', values: { dia: 150, lip: true } },
@@ -38,6 +38,17 @@ export default {
   hints(p) { return { notes: [] } },  // optional
 };
 ```
+
+## A menu that carries values
+
+An enum can declare `carries: (v, p) => ({ ...siblingValues })`. When the user
+picks an option, the UI applies what it returns before rebuilding. Use it where
+a choice implies other values a person would otherwise have to know — `pcbcase`'s
+Board menu carries the board's port cutouts, tallest component and headroom.
+Build the matching preset from the same function (`...boardCarries('pi4')`) so
+the menu and the preset cannot drift apart. It fires only on a change the user
+makes through the control; presets, reloads and the test hook `setParam` set
+values without it. Return `{}` for an option that implies nothing (Custom).
 
 ## The four rules that are not negotiable
 
@@ -187,6 +198,25 @@ requires a callout that names a millimetre parameter (and declares no `value`)
 to be exactly that many millimetres long — at the defaults and at every preset,
 because a callout placed from the default geometry has a way of pointing at
 nothing once the shape changes.
+
+## Two colours: `meta.colourChangeZ`
+
+A two-colour print by filament swap (a plate in one colour, raised work in
+another) declares the height where the second colour starts:
+
+```js
+return { mesh, meta: { dims, colourChangeZ: plateThickness } };
+```
+
+That one number is the whole contract. Any build whose meta carries a finite
+`colourChangeZ` gets two extra buttons under Download STL: **Bambu project
+(.3mf)**, a Bambu Studio project with the A1 mini profile, two filaments and the
+swap already on the layer slider (`js/kernel/bambu.js`), and **Open in Bambu
+Studio**, which hands the same file to Bambu Studio by URL. Neither appears for a
+build without it. Give the height of the boundary itself (the plate top), not the
+first layer above it: the writer works out the layer from the profile's layer
+height. Keep it a whole number of layers, or the swap waits for the next one.
+`comic` and `qrplaque` declare it.
 
 ## The test file
 

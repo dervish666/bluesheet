@@ -9,13 +9,13 @@ describe a cross-section before it becomes a solid.
   EVIDENCE: `poly2d: 211/211 passed` / `RESULT: PASS`
 
 - [x] G2: every export is exercised by the test file
-  CHECK: node tests/coverage.mjs js/kernel/poly2d.js tests/poly2d.test.mjs 2>&1 | tail -2
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/coverage.mjs js/kernel/poly2d.js tests/poly2d.test.mjs 2>&1 | tail -2
   EXPECT: missing: none
   EVIDENCE: `COVERAGE: 36/36 exports covered` / `missing: none`
 
 - [x] G3: at least 60 individual checks — this module is the foundation, thin
       coverage here poisons every generator
-  CHECK: node tests/poly2d.test.mjs 2>&1 | grep -c '^  ok '
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/poly2d.test.mjs 2>&1 | grep -c '^  ok '
   EXPECT: /^([6-9][0-9]|[1-9][0-9][0-9]+)$/
   EVIDENCE: `211`
 
@@ -57,7 +57,7 @@ describe a cross-section before it becomes a solid.
 - [x] G7: fuzz — 500 pseudorandom polygons (seeded, deterministic) through
       triangulate/offset/boolean with no throw, no NaN, and no ring that
       self-reports a negative area where positive is required
-  CHECK: node tests/poly2d.test.mjs 2>&1 | grep -i fuzz | head -3
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/poly2d.test.mjs 2>&1 | grep -i fuzz | head -3
   EXPECT: /ok /
   EVIDENCE: `ok fuzz oracle rejects a NaN coordinate` / `ok fuzz oracle rejects an inverted outer ring` / `ok fuzz oracle rejects a counter-clockwise hole`
   and the run itself: `ok fuzz: 500 seeded polygons complete without throwing — seed 20260821, 4000 operations, 0 threw, 211 ms`,

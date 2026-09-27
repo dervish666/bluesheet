@@ -300,7 +300,7 @@ conformance(gen, 'boxlid');
     analyze(Mesh.merge([ab, al])).shells === 2, `${analyze(Mesh.merge([ab, al])).shells} shells`);
 
   // With a divider grid: the skirt drops INSIDE the walls, so dividers that ran
-  // to the rim would hold the lid off. Found on a real screw organiser
+  // to the rim would hold the lid off. Sam found this on a screw organiser
   // (2026-09-03); the interpenetration check above had never been run with
   // dividers, so it never saw it.
   {

@@ -9,7 +9,7 @@ import { check } from './assert.mjs';
 import { isSolid, onPlate, centredXY, fitsBed, topology } from './meshcheck.mjs';
 import { Mesh } from '../../js/kernel/mesh.js';
 
-const CATEGORIES = ['Storage', 'Decor', 'Utility', 'Data', 'Kitchen', 'Toys', 'Mechanism'];
+const CATEGORIES = ['Storage', 'Decor', 'Utility', 'Data', 'Kitchen', 'Toys', 'Mechanism', 'Lighting'];
 const TYPES = ['number', 'int', 'enum', 'bool', 'text', 'image', 'field', 'series', 'vec2', 'color'];
 
 export const BED = { x: 180, y: 180, z: 180 };
@@ -120,6 +120,20 @@ export function conformance(gen, filename, opts = {}) {
       else if (!q.options.some(o => o.v === q.def)) { check(`${where}: default is one of the options`, false, String(q.def)); schemaOk = false; }
     }
     if (q.showIf !== undefined && typeof q.showIf !== 'function') { check(`${where}: showIf is a function`, false); schemaOk = false; }
+    if (q.carries !== undefined) {
+      // An enum may carry sibling values with a choice. Every option must
+      // yield a plain object naming only real parameters, never itself.
+      if (q.type !== 'enum' || typeof q.carries !== 'function') { check(`${where}: carries is a function on an enum`, false); schemaOk = false; }
+      else {
+        const keys = new Set((gen.params || []).map(x => x.key));
+        for (const o of q.options || []) {
+          let out;
+          try { out = q.carries(o.v, { ...defaults(gen), [q.key]: o.v }); } catch (e) { check(`${where}: carries(${o.v}) does not throw`, false, e.message); schemaOk = false; continue; }
+          const bad = Object.keys(out || {}).filter(k => !keys.has(k) || k === q.key);
+          if (!out || typeof out !== 'object' || bad.length) { check(`${where}: carries(${o.v}) names only other real params`, false, bad.join(',')); schemaOk = false; }
+        }
+      }
+    }
   }
   check('every parameter is well formed', schemaOk, `${seen.size} parameters`);
   check('parameters are grouped for the panel', (gen.params || []).every(q => !q.group || typeof q.group === 'string'));

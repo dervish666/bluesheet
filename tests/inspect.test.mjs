@@ -1,6 +1,6 @@
 // The inspector, driven in real Chrome against its own copy of the server.
 //
-//   node tests/inspect.test.mjs
+//   cd ~/explorer/projects/bluesheet && node tests/inspect.test.mjs
 //
 // This suite starts a private Bluesheet on an ephemeral port — the one on :8132
 // may be tracking a real print and is never touched — with the Made watcher

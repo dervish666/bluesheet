@@ -4,26 +4,26 @@ Scope: real font outlines, parsed here, with no library and no canvas — so a
 nameplate generator can extrude actual letterforms.
 
 - [x] G1: suite passes
-  CHECK: node tests/text.test.mjs 2>&1 | tail -3
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/text.test.mjs 2>&1 | tail -3
   EXPECT: RESULT: PASS
   EVIDENCE: `text: 191/191 passed` / `RESULT: PASS`
 
 - [x] G2: every export exercised
-  CHECK: node tests/coverage.mjs js/kernel/text.js tests/text.test.mjs 2>&1 | tail -2
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/coverage.mjs js/kernel/text.js tests/text.test.mjs 2>&1 | tail -2
   EXPECT: missing: none
   EVIDENCE: `COVERAGE: 9/9 exports covered` / `missing: none`
     (loadFont, Font, layoutText, measureText, capScaleFor, flattenQuadratic,
      contoursToShapes, sniffFontFormat, FontError)
 
 - [x] G3: at least 30 checks
-  CHECK: node tests/text.test.mjs 2>&1 | grep -c '^  ok '
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/text.test.mjs 2>&1 | grep -c '^  ok '
   EXPECT: /^([3-9][0-9]|[1-9][0-9][0-9]+)$/
   EVIDENCE: `191`
 
 - [x] G4: at least two real fonts are bundled under assets/fonts/ (a sturdy sans
       and a mono or a slab), each under 400 kB, each with a licence file, and the
       test parses both
-  CHECK: ls assets/fonts/ | tr '\n' ' '
+  CHECK: cd /home/claude/explorer/projects/bluesheet && ls assets/fonts/ | tr '\n' ' '
   EXPECT: /\.ttf/
   EVIDENCE: `DejaVuSansMono.LICENSE.txt DejaVuSansMono.ttf LiberationSansNarrow-Regular.LICENSE.txt LiberationSansNarrow-Regular.ttf Quicksand-Bold.LICENSE.txt Quicksand-Bold.ttf README.md`
     Three fonts, not two. Sizes from `ls -l`: Quicksand-Bold 96,204 B (96.2 kB,

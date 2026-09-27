@@ -38,7 +38,7 @@
   --plate: 'Archivo Narrow', 'Arial Narrow', Arial, system-ui, sans-serif;
 
   --frame-inset: 12px;
-  --tap: 44px;                 /* driven from a tablet; nothing is smaller */
+  --tap: 44px;                 /* Sam uses an iPad; nothing is smaller */
   --hair: 1px;
   color-scheme: dark;
 }

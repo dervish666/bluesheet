@@ -74,7 +74,7 @@ sheet border with a 12px margin, the way a drawing has a frame:
 
 Under 900px the columns stack: viewport first at 55vh, parameters below in a
 scrolling sheet, analysis as a compact strip that expands on tap. Every control is
-at least 44px on its short axis. **It is driven from an iPad** — a control that needs a
+at least 44px on its short axis. **Sam uses an iPad** — a control that needs a
 scroll wheel or a hover state is broken.
 
 ## The signature: the title block, and dimensions drawn on the model

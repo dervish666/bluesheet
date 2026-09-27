@@ -1,6 +1,6 @@
 // The interface, driven in real Chrome against the real server.
 //
-//   node tests/ui.test.mjs
+//   cd ~/explorer/projects/bluesheet && node tests/ui.test.mjs
 //   (the service must be up on 8132)
 //
 // Two halves, deliberately. Half of these checks go through window.__bluesheet,
@@ -455,6 +455,57 @@ await withPage(async (page) => {
   } else {
     check('applying a preset changes the bounding box', false, 'no generator declares a preset');
   }
+
+  // ---- the preset row tells the truth, and a kind menu carries its bundle --
+  // Apply a preset, then change a value through the real control: the row
+  // must say Custom (the title block already did), and choosing a board from
+  // the Board menu must bring that board's ports rather than keep the old one's.
+  const coh = await q(`(async () => {
+    await __bluesheet.setGen('pcbcase');
+    const sel = document.querySelector('[data-preset-select]');
+    const out = {};
+    out.fresh = sel.value;                                            // '' = Defaults
+    await __bluesheet.applyPreset('Raspberry Pi 4');
+    out.applied = sel.value;
+    const board = document.getElementById('p-board');
+    board.value = 'pi3bplus'; board.dispatchEvent(new Event('change', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 150));
+    out.afterBoard = sel.value;
+    out.customDisabled = [...sel.options].find(o => o.value === '__custom')?.disabled;
+    out.ports = __bluesheet.params.ports;
+    out.portsField = document.getElementById('p-ports')?.value;
+    out.pi3Ports = __bluesheet.gen.presets.find(p => p.name === 'Raspberry Pi 3 B+').values.ports;
+    // The title block follows the rebuild, so give it a moment.
+    for (let i = 0; i < 40; i++) {
+      out.variant = document.querySelector('[data-tb-variant]').textContent.trim();
+      if (out.variant === 'RASPBERRY PI 3 B+') break;
+      await new Promise(r => setTimeout(r, 100));
+    }
+    // Now a value the Pi 3 B+ preset does not set exactly: the row goes Custom.
+    await __bluesheet.applyPreset('Raspberry Pi 3 B+');
+    out.reapplied = sel.value;
+    const wall = document.getElementById('p-wallT');
+    wall.value = '3'; wall.dispatchEvent(new Event('input', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 150));
+    out.afterWall = sel.value;
+    document.querySelector('[data-reset]').click();
+    await new Promise(r => setTimeout(r, 150));
+    out.afterReset = sel.value;
+    return out;
+  })()`);
+  check('preset row starts on Defaults', coh.fresh === '');
+  check('preset row names an applied preset', coh.applied === 'Raspberry Pi 4');
+  // Pi 4 and Pi 3 B+ share every non-board value, so carrying the board's
+  // bundle lands exactly on the Pi 3 B+ preset — and the row must say so,
+  // rather than "Custom" or the stale "Raspberry Pi 4".
+  check('choosing a board re-labels the preset row to the preset it now matches', coh.afterBoard === 'Raspberry Pi 3 B+', coh.afterBoard);
+  check('the Custom entry is a state, not a choice', coh.customDisabled === true);
+  check('choosing a board carries its ports into the model', coh.ports === coh.pi3Ports, `${coh.ports} vs ${coh.pi3Ports}`);
+  check('…and into the ports field on screen', coh.portsField === coh.pi3Ports);
+  check('the title block agrees', coh.variant === 'RASPBERRY PI 3 B+', coh.variant);
+  check('re-applying a preset names it again', coh.reapplied === 'Raspberry Pi 3 B+');
+  check('editing a number flips the row to Custom', coh.afterWall === '__custom', coh.afterWall);
+  check('reset returns the row to Defaults', coh.afterReset === '', coh.afterReset);
 
   // ---- view modes, clicked ----------------------------------------------
   await clickAt('[data-mode="wire"]');

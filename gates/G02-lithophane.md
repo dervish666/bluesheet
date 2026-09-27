@@ -13,13 +13,13 @@ something personal into an object, and the easiest to get subtly wrong.
       every numeric parameter at its min AND its max and asserts the result is
       still a watertight solid resting on the plate. A generator that only works
       at its defaults fails here.
-  CHECK: node tests/gen-lithophane.test.mjs 2>&1 | grep 'parameter sweep'
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/gen-lithophane.test.mjs 2>&1 | grep 'parameter sweep'
   EXPECT: /builds, 0 defects/
   EVIDENCE: `ok   parameter sweep: every extreme still yields a watertight solid (69 builds)  — 69 builds, 0 defects` — plus 465 further combination trials (shape × frame × foot × fit × guard × hanger × mirror × filter × anchor, degenerate images, arc/shade clamp corners) run outside the suite: 0 defects.
 
 - [x] G3: at least 40 checks in the suite, of which at least 18 are
       domain-specific (not from the shared harness)
-  CHECK: node tests/gen-lithophane.test.mjs 2>&1 | grep -c '^  ok '
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/gen-lithophane.test.mjs 2>&1 | grep -c '^  ok '
   EXPECT: /^(4[0-9]|[5-9][0-9]|[1-9][0-9][0-9]+)$/
   EVIDENCE: `298` total; 62 of those come from conformance(), so **236 are domain-specific** (everything after the `-- the mapping --` banner).
 
@@ -67,7 +67,7 @@ something personal into an object, and the easiest to get subtly wrong.
       from the laid-out text, the message shrinks rather than overrunning the
       panel, the lit one is mirrored so it reads through the panel, and the
       result is ONE watertight solid in every case.
-  CHECK: node tests/gen-lithophane.test.mjs 2>&1 | sed -n '/-- the caption --/,$p' | grep -c '^  ok '
+  CHECK: cd /home/claude/explorer/projects/bluesheet && node tests/gen-lithophane.test.mjs 2>&1 | sed -n '/-- the caption --/,$p' | grep -c '^  ok '
   EXPECT: /^(2[0-9]|[3-9][0-9]|[1-9][0-9][0-9]+)$/
   EVIDENCE: `a caption leaves the picture exactly the size it was — 100 x 100 mm`;
       `the panel grows by the band and by nothing else` (off by 3.6e-15 mm);
