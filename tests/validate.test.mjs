@@ -539,7 +539,7 @@ check(`all ${total} meshes agree with the independent checker`, agree === total,
 console.log(`CROSSCHECK: ${agree}/${total} meshes agree with tests/lib/meshcheck.mjs`);
 
 // A knot of zero-area triangles must not be reported as a 0.00 mm wall. The
-// reproduction is the real one: the Skådis "Deep parts bin" preset reported
+// reproduction is the real one: the Skådis "Deep parts bin" preset told Sam
 // "0 mm² of surface forms a wall 0.00 mm thick" on 2026-09-03. A synthetic
 // lone degenerate triangle does NOT reproduce it (it measures no thickness at
 // all and never becomes a cluster), which is why this uses the generator.

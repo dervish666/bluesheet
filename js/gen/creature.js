@@ -486,11 +486,13 @@ export function segmentsOf(p, ctx) {
   // on the segment (a lofted head without a jaw is stitched), no unioned back. Anywhere else the leg stays the unioned
   // part it was, measured and pinned by the limbs suite; stitched rings under
   // a boolean took "everything on" rows to dozens of open edges.
-  const stitchable = i => !!legLoft && kind === 'ball' &&
+  const clean = i => kind === 'ball' &&
     (i === 0 ? p.head === 'none' || (!!loft && !p.jaw) : !!seams[i - 1]) &&
     (i === count - 1 ? p.tail === 'taper' || !!TAIL_LOFTS[p.tail] : !!seams[i]) &&
     !(DORSAL[p.dorsal] && p.dorsal !== 'none');
+  const stitchable = i => !!legLoft && clean(i);
   const stitchLegs = new Set([...legged].filter(stitchable));
+  const section = SECTIONS[p.section] || null;
   const parts = partsOf(p, ctx, stations, spans, skin, stitchLegs);
   // The crown's run on segment i: its skin span, never behind its own station
   // (a nested seam's skin starts behind it, over the dome, and rings there
@@ -533,13 +535,16 @@ export function segmentsOf(p, ctx) {
         // One run of rings: the crown's tooth and the leg's brackets together,
         // at the leg's resolution (the hole needs it, and nothing is unioned
         // onto a stitched-leg segment to choke on the zip).
-        const mids = crownRings(crown, stations[i], next, crownSpan(i), ctx, LEG_RING, brackets);
+        const mids = crownRings(crown, stations[i], next, crownSpan(i), ctx, LEG_RING, brackets, section);
         const j0 = mids.findIndex(q => Math.abs(q.z - brackets[0]) < 1e-6), j1 = mids.findIndex(q => Math.abs(q.z - brackets.at(-1)) < 1e-6);
         const L = shrink < 1 ? { ...legLoft, thigh: legLoft.thigh * shrink, shin: legLoft.shin * shrink } : legLoft;
         branches = legStretch(L, mids, j0, j1, stations[i], next, zc, rear.length + 1, R0);
         return mids;
       }
-      return crown && !legged.has(i) ? crownRings(crown, stations[i], next, crownSpan(i), ctx, n) : [];
+      // The section only where the segment has no boolean (the stitched-leg
+      // rule): its extra rings under a boolean are more of ruling 29's dice.
+      const S = clean(i) && !legged.has(i) ? section : null;
+      return (crown && !legged.has(i)) || S ? crownRings(crown && !legged.has(i) ? crown : null, stations[i], next, crownSpan(i), ctx, n, [], S) : [];
     };
     let body;
     if (frontBall && seams[i]) {
@@ -1318,6 +1323,30 @@ export function legStretch(L, rings, j0, j1, a, next, zc, s0, R) {
 /** Dorsal rows: `(st, p, ctx)` per SEGMENT station (the centre of its safe
  *  span). `st.len` is the span the piece may occupy along the spine. */
 /**
+ * CROSS-SECTIONS (Task 16). A segment swells from the circle at each joint
+ * into its species' section in the middle and back: the joints stay round
+ * (the nested cup and dome are surfaces of revolution) and the body stops
+ * being a pipe. [top, bot, w, e] as in the heads: half-height above and below
+ * the axis, half-width, superellipse exponent, in station radii. `bot` is 1
+ * everywhere so the belly stays on the plate, and flatter there as e grows.
+ */
+export const SECTIONS = {
+  round: null,
+  // Gentle on purpose: every joint pulls the section back to a circle, and at
+  // w 1.14 / 1.2 the lizard read as a string of beads. Most of the change is
+  // the exponent (squarer shoulders, a flatter belly on the plate).
+  low:   { top: 0.93, bot: 1, w: 1.04, e: 2.5 },    // dragon: a little lower, flatter-bellied
+  flat:  { top: 0.9, bot: 1, w: 1.05, e: 2.6 },     // lizard: flatter still
+  block: { top: 1, bot: 1, w: 1.02, e: 3.2 },       // capybara: squarer
+};
+
+/** The section's radius at ring angle a (from up), per station radius. */
+function sectionAt(S, a) {
+  const ca = Math.cos(a), sa = Math.sin(a), A = ca >= 0 ? S.top : S.bot;
+  return 1 / Math.pow(Math.pow(Math.abs(ca) / A, S.e) + Math.pow(Math.abs(sa) / S.w, S.e), 1 / S.e);
+}
+
+/**
  * STITCHED CROWNS (Task 18). The dorsal spikes as ring modulations of each
  * segment's own tube, like the heads: no cone unioned onto the back, so no
  * boolean and nothing to weld across a joint.
@@ -1372,10 +1401,12 @@ function crownAt(C, a) {
  * 24 the same builds are clean. The raw stitched mesh was sound either way,
  * checked for self-intersection; it is the boolean that cannot take the zip.
  */
-export function crownRings(C, a, b, span, ctx, m, extra = []) {
+export function crownRings(C, a, b, span, ctx, m, extra = [], S = null) {
   const len = Math.hypot(...b.p.map((v, k) => v - a.p[k]));
   const from = span.from, to = Math.min(span.to, 0.95 * len);
   const tooth = C && to - from > 2;
+  // A cross-section needs rings of its own through the segment's middle.
+  if (S) extra = [...extra, ...[0.15, 0.3, 0.5, 0.7, 0.85].map(u => u * len)];
   if (!tooth && !extra.length) return [];
   const A = ring(a, a.r, m), B = ring(b, b.r, m);
   const nrm = v => { const L = Math.hypot(...v); return v.map(x => x / L); };
@@ -1395,11 +1426,17 @@ export function crownRings(C, a, b, span, ctx, m, extra = []) {
   return zs.map(z => {
     const u = z / len, c = a.p.map((v, k) => lerp(v, b.p[k], u)), r = lerp(a.r, b.r, u);
     const rz = rise(z), atPeak = tooth && Math.abs(z - peak) < 1e-6;   // the tooth: 0 up to 1, then the back face
+    const swell = S ? Math.sin(Math.PI * clamp(u, 0, 1)) : 0;         // 0 at both joints
     const pts = A.map((q, i) => {
-      const base = q.map((v, k) => lerp(v, B[i][k], u));
+      let base = q.map((v, k) => lerp(v, B[i][k], u));
+      const ang = TAU * i / m;
+      if (S) {
+        const d = base.map((v, k) => v - c[k]), f = lerp(1, sectionAt(S, ang), swell);
+        base = c.map((v, k) => v + f * d[k]);
+      }
       if (!tooth) return base;
       const out = nrm(base.map((v, k) => v - c[k]));
-      const ang = TAU * i / m, h = crownAt(C, Math.atan2(Math.sin(ang), Math.cos(ang)));
+      const h = crownAt(C, Math.atan2(Math.sin(ang), Math.cos(ang)));
       // The peak ring's tips rake back over the seam, along the band.
       const drag = atPeak ? (C.over || 0) * r * h / C.spikes[0][1] : 0;
       return base.map((v, k) => v + rz * h * r * out[k] + drag * gen[i][k]);
@@ -1737,7 +1774,7 @@ export const SPECIES = [
   // at 182 mm. 13 x 15 is clean at draft, normal and fine and sits at 162 mm
   // on the diagonal. The defaults ARE this row, so it has to be clean. Ruling 50.
   { id: 'dragon', name: 'Dragon', joint: 'ball', segments: 13, segLen: 15, bodyR: 9,
-    profile: 'tapered', head: 'dragon', tail: 'spade', dorsal: 'crown', seams: 'nested',
+    profile: 'tapered', head: 'dragon', tail: 'spade', dorsal: 'crown', seams: 'nested', section: 'low',
     limbs: { pairs: 2, kind: 'clawed', at: [0.25, 0.55] }, articulate: ['spine', 'jaw'] },
 
   { id: 'snake', name: 'Snake', joint: 'ball', segments: 18, segLen: 11, bodyR: 7,
@@ -1753,11 +1790,11 @@ export const SPECIES = [
   // slice; 3 x 32, 4 x 26, 4 x 30 and 5 x 24 all measured clean, and 4 x 28
   // keeps the old length. Clean at every pose and quality, 0.2949 mm at normal.
   { id: 'capybara', name: 'Capybara', joint: 'ball', segments: 4, segLen: 28, bodyR: 13,
-    profile: 'loaf', head: 'capybara', tail: 'nub', dorsal: 'none', seams: 'nested',
+    profile: 'loaf', head: 'capybara', tail: 'nub', dorsal: 'none', seams: 'nested', section: 'block',
     limbs: { pairs: 2, kind: 'stub', at: [0.22, 0.72] }, articulate: ['spine'] },
 
   { id: 'lizard', name: 'Lizard', joint: 'ball', segments: 12, segLen: 14, bodyR: 8,
-    profile: 'tapered', head: 'lizard', tail: 'whip', dorsal: 'crest', seams: 'nested',
+    profile: 'tapered', head: 'lizard', tail: 'whip', dorsal: 'crest', seams: 'nested', section: 'flat',
     limbs: { pairs: 2, kind: 'splayed', at: [0.2, 0.6] }, articulate: ['spine'] },
 ];
 
@@ -1838,7 +1875,7 @@ export function speciesCarries(id) {
   if (!s) return {};
   return {
     joint: s.joint, segments: s.segments, segLen: s.segLen, bodyR: s.bodyR,
-    profile: s.profile, head: s.head, tail: s.tail, dorsal: s.dorsal, seams: s.seams || 'open',
+    profile: s.profile, head: s.head, tail: s.tail, dorsal: s.dorsal, seams: s.seams || 'open', section: s.section || 'round',
     // Each seam its own measured gap: nested printed perfect at 0.30.
     clearance: fit(s.seams === 'nested' ? 'nested' : 'free'),
     limbPairs: s.limbs.pairs, limbKind: s.limbs.kind,
@@ -1935,6 +1972,11 @@ export default {
     { key: 'clearance', label: 'Joint clearance', type: 'number', unit: 'mm',
       min: 0.15, max: 0.6, step: 0.05, def: fit('free'), group: 'Joint',
       help: 'The gap that stops the joint fusing as it prints. ' + fitNote('free') },
+    { key: 'section', label: 'Cross-section', type: 'enum', def: 'round', group: 'Body',
+      options: [{ v: 'round', label: 'Round' }, { v: 'low', label: 'Low and wide' }, { v: 'flat', label: 'Flat' },
+                { v: 'block', label: 'Blocky' }],
+      help: 'Each segment swells from round at its joints into this shape in the middle. Needs nested seams; ' +
+            'with open seams the body stays round.' },
     { key: 'seams', label: 'Seams', type: 'enum', def: 'open', group: 'Joint', showIf: (p) => p.joint !== 'hinge',
       options: [{ v: 'open', label: 'Open' }, { v: 'nested', label: 'Nested' }],
       help: 'Nested hides the gap between segments: each one cups the next around the ball, leaving a seam about 1 mm wide instead of a 4 mm gap. Printed and measured: every gap from 0.25 moves, 0.30 is best. ' + fitNote('nested') },

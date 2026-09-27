@@ -266,7 +266,7 @@ export class Builder {
   /** Binary STL of the current request, built where the mesh already lives. */
   stl(req, name) { return this._file('stl', req, name); }
 
-  /** A Bambu Studio project 3mf of the current request, colour change set. */
+  /** A Bambu Studio project 3mf of the current request, colour change set when the build declares one. */
   bambu(req, name) { return this._file('bambu', req, name); }
 
   _file(type, req, name) {

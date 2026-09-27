@@ -268,7 +268,6 @@ function onMesh(r) {
   analysis.set({ mesh: { bbox: box }, analysis: null, print: null });
   setSectionRange();
   updateFocusDim();
-  syncBambu();
   if (r.hints && Array.isArray(r.hints.notes) && r.hints.notes.length) {
     status('Ready', r.hints.notes[0]);
   } else {
@@ -533,11 +532,13 @@ $('[data-export]').addEventListener('click', async () => {
 
 // ---- Bambu Studio ---------------------------------------------------------
 //
-// A generator that returns meta.colourChangeZ is a two-colour print, and gets a
-// Bambu Studio project with Sam's A1 mini profile and the swap already on the
-// layer slider (js/kernel/bambu.js). Nothing here knows which generators those
-// are: the buttons follow the build's meta, and stay hidden for everything else
-// (a one-colour project would be the plain 3mf again with a profile attached).
+// Every object gets a Bambu Studio project with Sam's A1 mini profile attached
+// (js/kernel/bambu.js). A generator that returns meta.colourChangeZ is a
+// two-colour print and its project carries the swap already on the layer
+// slider; anything else prints in filament 1 and the project has no per-layer
+// file at all. Nothing here knows which generators are which: the worker reads
+// the build's meta. The buttons are always shown and guard in the handler, the
+// same way "Download STL" does.
 //
 // "Open in Bambu Studio" parks the project on this server and hands Bambu a URL
 // to it through the scheme MakerWorld uses. Bambu downloads it itself, so the
@@ -545,26 +546,23 @@ $('[data-export]').addEventListener('click', async () => {
 // internet. Bambu asks "not from a trusted site, open anyway?" for anything
 // that is not MakerWorld; that dialog is Bambu's and cannot be skipped.
 
-function hasColourChange() {
+function colourChangeZ() {
   const meta = !S.imported && S.result && S.result.meta;
-  return !!meta && Number.isFinite(meta.colourChangeZ);
-}
-
-// Looked up on each call, not held in a const: onMesh can call this from
-// anywhere in the file's order of evaluation.
-function syncBambu() {
-  const on = hasColourChange();
-  $('[data-export-bambu]').hidden = !on;
-  $('[data-open-bambu]').hidden = !on;
+  return meta && Number.isFinite(meta.colourChangeZ) ? meta.colourChangeZ : null;
 }
 
 function bambuName() {
   const slug = objectName().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-  return `${S.gen.id}-${slug || 'object'}`;
+  return S.imported ? (slug || 'imported') : `${S.gen.id}-${slug || 'object'}`;
 }
 
 async function bambuProject() {
-  if (!S.gen || !hasColourChange()) throw new Error('this object declares no colour change');
+  if (S.imported) {
+    // Same object exportSTL() hands back; the writer has no DOM, so it runs here.
+    const { exportBambuProject } = await import('./kernel/bambu.js');
+    return exportBambuProject(S.imported.mesh, { name: objectName() });
+  }
+  if (!S.gen) throw new Error('nothing to export');
   return builder.bambu(request(), objectName());
 }
 
@@ -573,7 +571,9 @@ $('[data-export-bambu]').addEventListener('click', async () => {
     const bytes = await bambuProject();
     const name = `${bambuName()}.3mf`;
     download(new Blob([bytes], { type: 'model/3mf' }), name);
-    status('Saved', `${name}: Bambu project, filament change at ${S.result.meta.colourChangeZ} mm, ${(bytes.byteLength / 1024).toFixed(0)} kB`);
+    const z = colourChangeZ();
+    const swap = z === null ? 'one filament' : `filament change at ${z} mm`;
+    status('Saved', `${name}: Bambu project, ${swap}, ${(bytes.byteLength / 1024).toFixed(0)} kB`);
   } catch (e) {
     status('Failed', e.message, 'error');
   }
@@ -724,7 +724,6 @@ function useImported(obj) {
     triCount: obj.mesh.triCount, repaired: !!obj.repaired, report: obj.report || null,
   };
   plate.hide();
-  syncBambu();
   viewer.setMesh(obj.render || obj.mesh);
   const box = boxOf({ bbox: obj.bbox || obj.mesh.bbox() });
   dims.setBox(box);
@@ -754,7 +753,6 @@ function useImported(obj) {
 function leaveImported() {
   if (!S.imported) return;
   S.imported = null;
-  syncBambu();
   if (S.gen) {
     $('[data-crumb-cat]').textContent = S.gen.category;
     $('[data-crumb-gen]').textContent = S.gen.name;

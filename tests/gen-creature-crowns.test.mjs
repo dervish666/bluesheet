@@ -8,7 +8,7 @@ import { isSolid } from './lib/meshcheck.mjs';
 import { shellCount, jointGateHolds, minShellGap } from './lib/gapcheck.mjs';
 import { freeSwing } from './lib/swing.mjs';
 import { Mesh } from '../js/kernel/mesh.js';
-import gen, { CROWNS, crownRings, segmentsOf, spineOf, SPECIES } from '../js/gen/creature.js';
+import gen, { CROWNS, SECTIONS, crownRings, segmentsOf, spineOf, SPECIES } from '../js/gen/creature.js';
 
 suite('gen creature crowns');
 
@@ -91,6 +91,48 @@ for (const q of ['draft', 'normal', 'fine']) {
   const flat = segmentsOf({ ...legs, dorsal: 'none' }, C).map(m => m.bbox().max[2]);
   check('the legged segment wears no crown', Math.abs(tops[1] - flat[1]) < 1e-6, `${tops[1].toFixed(2)} vs ${flat[1].toFixed(2)}`);
   check('FALSIFIER: the segment after it does', tops[2] > flat[2] + 0.3 * R, `${tops[2].toFixed(2)} vs ${flat[2].toFixed(2)}`);
+}
+
+// ---------------------------------------------------------------------------
+// Cross-sections (Task 16): each segment swells from round at its joints into
+// its section and back. Nested only; open seams keep the body round.
+// ---------------------------------------------------------------------------
+{
+  const nested = { ...bare, seams: 'nested', segLen: 15, segments: 3 };
+  for (const q of ['draft', 'normal', 'fine']) {
+    const C = ctx(q);
+    for (const [id, S] of Object.entries(SECTIONS)) if (S) {
+      const m = Mesh.merge(segmentsOf({ ...nested, section: id }, C));
+      isSolid(`section ${id}, ${q}`, m);
+      check(`section ${id}, ${q}: 3 pieces, gap gate held, on the plate`,
+        jointGateHolds(m, 3, D.clearance) && Math.abs(m.bbox().min[2]) < 1e-6);
+    }
+  }
+  const C = ctx('normal');
+  // Width across the segment's middle (straight body along x): the widest
+  // point of a tapered segment is its fat end, so a bbox cannot see this.
+  const { stations } = spineOf(nested, C), xm = (stations[1].p[0] + stations[2].p[0]) / 2;
+  const midWidth = m => { let w = 0; const P = m.positions;
+    for (let i = 0; i < m.vertCount; i++) if (Math.abs(P[3 * i] - xm) < 1.5) w = Math.max(w, Math.abs(P[3 * i + 1])); return 2 * w; };
+  // Against the same rings with a circular section: the band runs to the
+  // nested cup's first ring, not the next station, so no closed form will do.
+  SECTIONS.__circle = { top: 1, bot: 1, w: 1, e: 2 };
+  const round = midWidth(segmentsOf({ ...nested, section: '__circle' }, C)[1]);
+  delete SECTIONS.__circle;
+  for (const [id, S] of Object.entries(SECTIONS)) if (S) {
+    const w = midWidth(segmentsOf({ ...nested, section: id }, C)[1]);
+    check(`section ${id}: the middle is as wide as its section says`, w > round * (1 + 0.5 * (S.w - 1)),
+      `${w.toFixed(2)} vs round ${round.toFixed(2)} mm`);
+    const f = freeSwing({ ...nested, section: id }, C, 0, { max: 40 });
+    check(`section ${id}: the joint still bends 20 degrees (round at the seams)`, f.free >= 20, `${f.free} degrees`);
+  }
+  // Open seams: the section is not applied (its rings under the socket's
+  // booleans are more dice), so the build is the round one exactly.
+  const openRound = segmentsOf({ ...bare, segments: 3 }, C)[1], openLow = segmentsOf({ ...bare, segments: 3, section: 'low' }, C)[1];
+  check('FALSIFIER: open seams keep the body round', openRound.vertCount === openLow.vertCount &&
+    Math.abs(openRound.volume() - openLow.volume()) < 1e-9);
+  const by = Object.fromEntries(SPECIES.map(s => [s.id, s]));
+  check('dragon low, lizard flat, capybara block', by.dragon.section === 'low' && by.lizard.section === 'flat' && by.capybara.section === 'block');
 }
 
 done();

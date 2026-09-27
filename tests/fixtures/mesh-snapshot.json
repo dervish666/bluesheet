@@ -1595,14 +1595,14 @@
   ]
  },
  "creature/preset:Dragon": {
-  "hash": "27f2d14d228f05e7",
-  "tris": 49294,
-  "verts": 24675,
-  "vol": 40131.740045,
+  "hash": "9c405e92689d0e59",
+  "tris": 53934,
+  "verts": 26995,
+  "vol": 41155.382742,
   "bbox": [
    174.481772,
    174.481772,
-   26.270537
+   25.675061
   ]
  },
  "creature/preset:Snake": {
@@ -1628,10 +1628,10 @@
   ]
  },
  "creature/preset:Capybara": {
-  "hash": "a6a86cc0de2b0a65",
-  "tris": 14736,
-  "verts": 7376,
-  "vol": 90825.720477,
+  "hash": "ed5bb30479a56849",
+  "tris": 16896,
+  "verts": 8456,
+  "vol": 94501.260922,
   "bbox": [
    121.797481,
    121.797481,
@@ -1639,14 +1639,14 @@
   ]
  },
  "creature/preset:Lizard": {
-  "hash": "1cc2c5c88b09531e",
-  "tris": 39000,
-  "verts": 19524,
-  "vol": 25789.674082,
+  "hash": "3ab47a4d537e862c",
+  "tris": 43480,
+  "verts": 21764,
+  "vol": 26620.989967,
   "bbox": [
    148.9513,
    148.9513,
-   22.733882
+   21.98508
   ]
  },
  "creature/preset:Joint gauge": {

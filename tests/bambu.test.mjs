@@ -20,6 +20,9 @@ import { PROJECT_SETTINGS } from '../js/kernel/bambu-profile.js';
 import { ctx, defaults } from './lib/genconform.mjs';
 import comic from '../js/gen/comic.js';
 import qrplaque from '../js/gen/qrplaque.js';
+import vase from '../js/gen/vase.js';
+import boxlid from '../js/gen/boxlid.js';
+import { Mesh } from '../js/kernel/mesh.js';
 
 suite('bambu project');
 
@@ -170,6 +173,43 @@ const MINIMAL = [
   near(`qrplaque's swap lands at the first whole layer above ${Z} mm`, parseFloat((z.layers[0] || {}).top_z), colourChangeTopZ(Z), 1e-9);
   check('...one layer up when its base is on the layer grid',
     Math.abs(Z / 0.2 - Math.round(Z / 0.2)) > 1e-6 || Math.abs(parseFloat((z.layers[0] || {}).top_z) - (Z + 0.2)) < 1e-9, JSON.stringify(z.layers));
+}
+
+// ---------------------------------------------------------------------------
+// No colour change: every other generator in the catalogue (the buttons show
+// for all of them since 2026-09-27). The project is the same file set minus the
+// per-layer file, prints in filament 1, and the geometry round-trips. A
+// multi-part build ships as the one merged mesh the STL export ships
+// (build-core's asMesh), so a two-part boxlid is one object here too.
+// ---------------------------------------------------------------------------
+{
+  const rv = vase.build(defaults(vase), C);
+  check('vase declares no colour change', !(rv.meta && Number.isFinite(rv.meta.colourChangeZ)), JSON.stringify(rv.meta && rv.meta.colourChangeZ));
+  const z = inspect(exportBambuProject(rv.mesh, { name: 'vase' }));
+  check('vase: every CRC checks out', z.bad === null, String(z.bad));
+  check('vase: the archive is the minimal set without custom_gcode_per_layer.xml',
+    JSON.stringify(z.names) === JSON.stringify(MINIMAL.slice(0, -1)), z.names.join(', '));
+  check('vase: nothing in it is named after a swap', z.root === undefined && z.layers.length === 0, JSON.stringify(z.layers));
+  check('vase: still a Bambu Studio project (Application set, so the profile loads)',
+    z.meta.Application === BAMBU_APPLICATION, z.meta.Application);
+  check('vase: the profile and plate 1 travel with it', z.settings_bytes === 49837 && z.plater_id === '1', `${z.settings_bytes} / ${z.plater_id}`);
+  check('vase: the object prints in filament 1', z.object_extruder === '1', z.object_extruder);
+  check('vase: vertex count round-trips', z.vertices === rv.mesh.positions.length / 3, `${z.vertices} vs ${rv.mesh.positions.length / 3}`);
+  check('vase: triangle count round-trips', z.triangles === rv.mesh.tris.length / 3, `${z.triangles} vs ${rv.mesh.tris.length / 3}`);
+  const bb = rv.mesh.bbox(), t = z.item.slice(9);
+  near('vase: placed X min is the mesh\'s', z.lo[0] + t[0] - 90, bb.min[0], 1e-4);
+  near('vase: placed Z max is the mesh\'s', z.hi[2] + t[2], bb.max[2], 1e-4);
+  near('vase: the base sits on the bed', z.lo[2] + t[2], 0, 1e-6);
+
+  const rb = boxlid.build(defaults(boxlid), C);
+  check('boxlid builds more than one part', Array.isArray(rb.parts) && rb.parts.length > 1, String(rb.parts && rb.parts.length));
+  const merged = Mesh.merge(rb.parts.map(p => p.mesh));
+  const zb = inspect(exportBambuProject(merged, { name: 'boxlid' }));
+  check('boxlid: all parts land in the one object', zb.triangles === rb.parts.reduce((a, p) => a + p.mesh.triCount, 0) && zb.bad === null,
+    `${zb.triangles} triangles`);
+  check('boxlid: no per-layer file either', !zb.names.includes('Metadata/custom_gcode_per_layer.xml'), zb.names.join(', '));
+  check('boxlid: the merged mesh is what the STL export ships (same triangle count as result.mesh)',
+    merged.triCount === rb.mesh.triCount, `${merged.triCount} vs ${rb.mesh.triCount}`);
 }
 
 // ---------------------------------------------------------------------------

@@ -239,16 +239,16 @@ async function doSTL(msg, post) {
     [u8.buffer]);
 }
 
-/** A Bambu Studio project of the current request, with the generator's
- *  colour change set. Refuses a build that declares none rather than shipping a
- *  one-colour project under a two-colour name. The writer and Sam's 49 kB
- *  profile load on first use, not with the worker. */
+/** A Bambu Studio project of the current request. The generator's colour
+ *  change goes on the layer slider when it declares one; otherwise the project
+ *  has no per-layer file and prints in filament 1. Multi-part builds go as the
+ *  one merged mesh the STL export ships. The writer and Sam's 49 kB profile
+ *  load on first use, not with the worker. */
 async function doBambu(msg, post) {
   const r = await build(msg, post);
   const z = r.meta && r.meta.colourChangeZ;
-  if (!Number.isFinite(z)) throw new Error(`${r.genId} declares no colour change, so there is no swap to put in a Bambu project`);
   const { exportBambuProject } = await import('../kernel/bambu.js');
-  const u8 = exportBambuProject(r.mesh, { name: msg.name || r.genId, colourChangeZ: z });
+  const u8 = exportBambuProject(r.mesh, { name: msg.name || r.genId, colourChangeZ: Number.isFinite(z) ? z : null });
   post({ type: 'stl', jobId: msg.jobId, key: r.key, bytes: u8, triCount: r.mesh.triCount }, [u8.buffer]);
 }
 
