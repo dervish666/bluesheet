@@ -548,7 +548,10 @@ export function segmentsOf(p, ctx) {
     // station and the next body ring, inside the segment's skin span.
     // Between this station and the next body ring: a stitched leg stretch
     // (Task 19) and then the crown, or the crown alone, or nothing.
-    let branches = [];
+    // Eyes and antennae grown out of the head's rings (the head detail pass).
+    let branches = i === 0 && loft
+      ? headBranches(HEAD_LOFTS[loft], rear, 0, stations[0], stations[0].t.map(v => -v), num(p.bodyR, 9))
+      : [];
     const crownTo = next => {
       if (stitchLegs.has(i)) {
         // The leg only touches the skin, which runs from this station to the
@@ -566,7 +569,7 @@ export function segmentsOf(p, ctx) {
         const mids = crownRings(crown, stations[i], next, crownSpan(i), ctx, LEG_RING, brackets, section);
         const j0 = mids.findIndex(q => Math.abs(q.z - brackets[0]) < 1e-6), j1 = mids.findIndex(q => Math.abs(q.z - brackets.at(-1)) < 1e-6);
         const L = shrink < 1 ? { ...legLoft, thigh: legLoft.thigh * shrink, shin: legLoft.shin * shrink } : legLoft;
-        branches = legStretch(L, mids, j0, j1, stations[i], next, zc, rear.length + 1, R0);
+        branches = [...branches, ...legStretch(L, mids, j0, j1, stations[i], next, zc, rear.length + 1, R0)];
         return mids;
       }
       // The section only where the segment has no boolean (the stitched-leg
@@ -743,8 +746,8 @@ const HEAD_R = 1.05, TAIL_R = 1.05;
  * on the plate (the capybara), 0 is a rounded nose on the axis.
  *
  * `bumps` are the features, radial swellings of the rings: [z, angle from up
- * (mirrored to both sides), height, z spread, angle spread], a Gaussian in
- * both. Eyes, brows, ears, nostrils and horns are all bumps, not unioned
+ * (mirrored to both sides), height, z spread, angle spread, sweep, rake,
+ * shape], a Gaussian in both unless shape is 'tent'; a negative height dents. Eyes, brows, ears, nostrils and horns are all bumps, not unioned
  * primitives, so a face costs no booleans. `sweep` > 0 turns a bump into a
  * ridge that grows from nothing at z + sweep to full height at z and stops
  * there: a horn raked back towards the neck.
@@ -752,26 +755,72 @@ const HEAD_R = 1.05, TAIL_R = 1.05;
 export const HEAD_LOFTS = {
   dragon: {
     // A skull a little wider than the body, a brow that steps down to a long
-    // low snout, and the chin flat on the plate for most of its length.
+    // low snout, and the chin flat on the plate for most of its length. The
+    // mouth is the jaw's own split line, so no groove here.
     keys: [[0], [0.4, 1.12, 1, 1.25, 2.6], [1.0, 1.1, 1, 1.32, 3],
            [1.45, 0.9, 1, 1.05, 3], [1.85, 0.64, 0.97, 0.8, 3], [2.9, 0.5, 0.86, 0.66, 2.6]],
     nose: 0.4, anchor: 0.3,
     bumps: [
-      [1.3, 60, 0.3, 0.16, 12],               // eyes
-      [1.18, 38, 0.2, 0.2, 11],               // brow ridge over them
-      [0.35, 24, 0.75, 0.11, 8, 1.05, 0.7],   // horns: a ridge off the brow, raked back over the neck
-      [3.0, 24, 0.08, 0.08, 9],               // nostrils
+      [1.3, 60, -0.12, 0.22, 16],                        // the socket round each eye
+      [1.16, 40, 0.26, 0.22, 14, 0, 0, 'tent'],          // a crisp brow ridge over it
+      [0.35, 24, 0.75, 0.11, 8, 1.05, 0.8, 'tent'],      // horns, raked back over the neck
+      [0.55, 88, 0.3, 0.14, 7, 0, 0.35, 'tent'],         // cheek frills, raked back
+      [2.35, 70, 0.1, 0.12, 8, 0, 0, 'tent'],            // a ridge of scales along the snout
+      [2.95, 24, -0.08, 0.07, 9],                        // nostrils
+    ],
+    branches: [
+      { kind: 'eye', z: 1.3, deg: 60, r: 0.2, hw: 12 }         // eyeballs standing in their sockets,
     ],
   },
+
   lizard: {
     keys: [[0], [0.4, 0.98, 1, 1.28, 2.4], [1.0, 0.86, 1, 1.35, 2.6],
            [1.75, 0.6, 0.95, 0.98, 2.4], [2.35, 0.44, 0.85, 0.66, 2.2]],
     nose: 0.32, anchor: 0.3,
     bumps: [
-      [1.05, 50, 0.38, 0.18, 15],             // eyes, big and high
-      [2.45, 22, 0.06, 0.06, 9],              // nostrils
+      [1.05, 50, -0.12, 0.22, 20],                       // the socket round each eye
+      [0.95, 34, 0.14, 0.18, 10, 0, 0, 'tent'],          // a brow ridge
+      [1.75, 98, -0.09, 0.55, 5, 0, 0, 'tent'],          // the mouth, a groove along each side
+      [2.45, 22, -0.07, 0.06, 9],                        // nostrils
+    ],
+    branches: [
+      { kind: 'eye', z: 1.05, deg: 50, r: 0.23, hw: 15 }        // big bulging eyes,
     ],
   },
+
+  snake: {
+    // A narrow neck flaring into a flat wedge jaw half as wide again, eyes on
+    // the sides where the jaw is widest.
+    keys: [[0], [0.4, 0.8, 1, 0.95, 2.2], [1.0, 0.78, 1, 1.45, 2.6],
+           [1.7, 0.62, 0.95, 1.2, 2.4], [2.3, 0.46, 0.85, 0.72, 2.2]],
+    nose: 0.35, anchor: 0.35,
+    bumps: [
+      [1.3, 62, -0.1, 0.2, 16],                          // the socket round each eye
+      [1.2, 38, 0.16, 0.18, 12, 0, 0, 'tent'],           // brow scales, crisp
+      [1.6, 96, -0.08, 0.7, 5, 0, 0, 'tent'],            // the mouth, a long groove
+      [2.45, 22, -0.06, 0.06, 9],                        // nostrils
+    ],
+    branches: [
+      { kind: 'eye', z: 1.3, deg: 62, r: 0.18, hw: 11 },
+    ],
+  },
+
+  bug: {
+    // The caterpillar's: big, round and chunky, with big eyes, antenna stubs
+    // and a smile.
+    keys: [[0], [0.35, 1.2, 1, 1.18, 2.2], [1.0, 1.28, 1, 1.25, 2.1], [1.6, 1.08, 1, 1.05, 2.1]],
+    nose: 0.6, anchor: 0.45,
+    bumps: [
+      [1.3, 52, -0.12, 0.24, 20],                        // the socket round each eye
+      [2.0, 78, -0.08, 0.1, 22, 0, 0, 'tent'],           // the smile, curving round the front
+      [2.05, 45, 0.08, 0.1, 14],                         // cheeks above it
+    ],
+    branches: [
+      { kind: 'eye', z: 1.3, deg: 52, r: 0.24, hw: 15 },
+      { kind: 'stalk', z: 0.8, deg: 22, r: 0.13, stalk: 0.07, len: 0.8, lean: 0.6, hw: 7 }   // antennae, balls on stalks,
+    ],
+  },
+
   capybara: {
     // Rounded, as the flexi capybaras are: no taller than the back, a soft
     // superellipse, the nose curving down towards the chin.
@@ -779,11 +828,17 @@ export const HEAD_LOFTS = {
            [1.6, 0.84, 1, 0.9, 2.7], [1.9, 0.74, 1, 0.8, 2.5]],
     nose: 0.5, anchor: 0.6,
     bumps: [
-      [0.5, 44, 0.34, 0.14, 11],              // ears
-      [1.05, 62, 0.16, 0.1, 9],               // eyes
-      [2.2, 28, 0.06, 0.08, 10],              // nostrils
+      [0.5, 44, 0.34, 0.14, 11],                         // ears
+      [0.5, 44, -0.1, 0.07, 6],                          // the hollow of each ear
+      [1.05, 62, -0.08, 0.16, 14],                       // the socket round each eye
+      [2.15, 30, -0.1, 0.08, 10],                        // nostrils, big on the flat muzzle
+      [2.2, 90, -0.07, 0.25, 6, 0, 0, 'tent'],           // the mouth line
+    ],
+    branches: [
+      { kind: 'eye', z: 1.05, deg: 62, r: 0.12, hw: 9 }         // small dark eyes,
     ],
   },
+
 };
 
 const smooth = t => t * t * (3 - 2 * t);
@@ -805,7 +860,7 @@ function headSection(L, z, k0) {
  *  and how far they drag it back towards the neck: { r, back }. */
 function headBump(L, z, a) {
   let r = 0, back = 0;
-  for (const [z0, deg, h, sz, sa, sweep = 0, rake = 0] of L.bumps) {
+  for (const [z0, deg, h, sz, sa, sweep = 0, rake = 0, shape = 'soft'] of L.bumps) {
     let dz;
     if (sweep > 0) {
       if (z < z0) dz = (z - z0) / sz;                          // the tip: falls off fast
@@ -815,7 +870,13 @@ function headBump(L, z, a) {
     const grow = sweep > 0 ? clamp(1 - (z - z0) / sweep, 0, 1) : 1;
     // Mirrored: the nearer of the two sides.
     const da = (Math.abs(Math.abs(a) - deg * DEG)) / (sa * DEG);
-    const wgt = grow * Math.exp(-dz * dz - da * da);
+    // 'soft' is a Gaussian (an eyeball, a cheek); 'tent' falls off in straight
+    // lines to nothing at dz, da = 1, so its edges and apex are crisp (a brow
+    // ridge, a frill, a horn). A negative height is a dent: a socket, a mouth
+    // groove, a nostril.
+    const wgt = grow * (shape === 'tent'
+      ? Math.max(0, 1 - Math.abs(dz)) * Math.max(0, 1 - da)
+      : Math.exp(-dz * dz - da * da));
     r += h * wgt;
     back = Math.max(back, rake * wgt);
   }
@@ -831,7 +892,12 @@ function headBump(L, z, a) {
 export function headRings(kind, st, fwd, ctx, m, R = st.r) {
   const L = HEAD_LOFTS[kind], s = R, k0 = st.r / R;
   const zEnd = L.keys[L.keys.length - 1][0], zTip = zEnd + L.nose;
-  const count = Math.max(10, Math.round(24 * segScale(ctx)));
+  // 36 rings at normal (24 before the detail pass): a socket or a groove is a
+  // few tenths of bodyR long, and 24 rings sampled it with two points. Capped
+  // at 48, fine's old count: 72 at fine gave the jaw's split twice the
+  // triangles to cut, and the dragon's cranium and mandible each rolled a bad
+  // edge (the same limit as the ring points round, ruling 76).
+  const count = Math.max(12, Math.min(48, Math.round(36 * segScale(ctx))));
   const out = [];
   const at = (z, x, y) => st.p.map((v, k) => v + s * (z * fwd[k] + x * st.n[k] + y * st.b[k]));
   for (let j = 1; j <= count; j++) {
@@ -865,10 +931,90 @@ export function headRings(kind, st, fwd, ctx, m, R = st.r) {
       // Features ride the upper half and the flanks; never under the chin.
       const ang = Math.atan2(sa, ca);
       let back = 0;
-      if (ca > -0.2) { const bmp = headBump(L, z, ang); rho += bmp.r * f; back = bmp.back; }
+      if (ca > -0.2) { const bmp = headBump(L, z, ang); rho = Math.max(0.2 * rho, rho + bmp.r * f); back = bmp.back; }
       pts.push([oc + rho * ca, rho * sa, z - back]);
     }
-    out.push({ pts: pts.map(([x, y, zz]) => at(zz, x, y)) });
+    out.push({ pts: pts.map(([x, y, zz]) => at(zz, x, y)), z });
+  }
+  return out;
+}
+
+/**
+ * HEAD BRANCHES (the head detail pass). Eyes and antennae are tubes grown out
+ * of a hole in the head's own rings, exactly as the legs grow out of a flank,
+ * because a radial bump can only swell the section: it cannot make a round
+ * eyeball standing in its socket or a thin stalk standing free of the skull.
+ *
+ * `rings` is a run of the tube's ring list that includes the head's rings
+ * (each head ring carries its `z`), and `s0` is where rings[0] sits in the
+ * tube's list. Specs, in bodyR units, mirrored to both sides:
+ *   { kind: 'eye', z, deg, r, hw }                 a ball of radius r on a short neck
+ *   { kind: 'stalk', z, deg, r, stalk, len, lean } a stalk of radius `stalk`, `len`
+ *                                                  long, leaning `lean` towards the
+ *                                                  nose, with a ball of radius r
+ * `hw` is the hole's half width in degrees round the head.
+ */
+export function headBranches(L, rings, s0, st, fwd, R) {
+  if (!L.branches || !L.branches.length) return [];
+  const nrm = v => { const l = Math.hypot(...v); return v.map(x => x / l); };
+  const dot = (u, v) => u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
+  const cross = (u, v) => [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+  const add = (...vs) => vs.reduce((acc, v) => acc.map((x, k) => x + v[k]));
+  const mul = (v, k) => v.map(x => x * k);
+  const heads = rings.map((q, j) => ({ j, z: q.z })).filter(q => q.z !== undefined && rings[q.j].pts);
+  if (heads.length < 3) return [];
+  const spacing = Math.abs(heads[1].z - heads[0].z);
+  const out = [];
+  for (const B of L.branches) {
+    const half = Math.max(B.r * 1.05, 1.2 * spacing);
+    const within = heads.filter(q => Math.abs(q.z - B.z) <= half);
+    if (within.length < 2) continue;
+    const j0 = Math.min(...within.map(q => q.j)), j1 = Math.max(...within.map(q => q.j));
+    const m = rings[j0].pts.length, step = 360 / m;
+    for (const side of [1, -1]) {
+      const a = side > 0 ? B.deg : 360 - B.deg;
+      const i0 = Math.round((a - B.hw) / step), i1 = Math.max(i0 + 1, Math.round((a + B.hw) / step));
+      if (i0 < 0 || i1 >= m) continue;
+      // The rim, in tubeThrough's order.
+      const P = rings.map(q => q.pts), rim = [];
+      for (let i = i0; i <= i1; i++) rim.push(P[j0][i]);
+      for (let s = j0 + 1; s < j1; s++) rim.push(P[s][i1]);
+      for (let i = i1; i >= i0; i--) rim.push(P[j1][i]);
+      for (let s = j1 - 1; s > j0; s--) rim.push(P[s][i0]);
+      const c = mul(add(...rim), 1 / rim.length);
+      // Out along the hole's own normal (Newell's, over the rim), turned to face
+      // away from the head's axis. The radial direction from the axis was used
+      // first; on a squarish or tapering head it is not the surface normal, and
+      // the eye's first ring dipped back into the skull (2 to 22 crossing pairs).
+      const axis = st.p.map((v, k) => v + B.z * R * fwd[k]);
+      let N = [0, 0, 0];
+      for (let k = 0; k < rim.length; k++) {
+        const p0 = rim[k], p1 = rim[(k + 1) % rim.length];
+        N = add(N, [(p0[1] - p1[1]) * (p0[2] + p1[2]), (p0[2] - p1[2]) * (p0[0] + p1[0]), (p0[0] - p1[0]) * (p0[1] + p1[1])]);
+      }
+      let T = nrm(N);
+      if (dot(T, c.map((v, k) => v - axis[k])) < 0) T = mul(T, -1);
+      if (B.lean) T = nrm(add(T, mul(fwd, B.lean)));
+      let U = nrm(fwd.map((v, k) => v - dot(fwd, T) * T[k]));
+      const V = cross(T, U);
+      let phi = rim.map(q => { const w = q.map((v, k) => v - c[k]); return Math.atan2(dot(w, V), dot(w, U)); });
+      for (let j = 1; j < phi.length; j++) { while (phi[j] - phi[j - 1] > Math.PI) phi[j] -= TAU; while (phi[j] - phi[j - 1] < -Math.PI) phi[j] += TAU; }
+      const ringAt = (d, rad) => ({ pts: phi.map(f => add(c, mul(T, d), mul(U, rad * Math.cos(f)), mul(V, rad * Math.sin(f)))) });
+      const r = B.r * R, rs = [];
+      let tip;
+      if (B.kind === 'eye') {
+        const neck = 0.5 * r;
+        rs.push(ringAt(neck, r));
+        for (const th of [25, 50, 72]) rs.push(ringAt(neck + r * Math.sin(th * DEG), r * Math.cos(th * DEG)));
+        tip = add(c, mul(T, neck + r));
+      } else {
+        const sr = B.stalk * R, len = B.len * R;
+        rs.push(ringAt(0.12 * len, 1.5 * sr), ringAt(0.3 * len, sr), ringAt(len - 0.6 * r, sr));
+        for (const th of [-45, -10, 25, 55, 75]) rs.push(ringAt(len + r * Math.sin(th * DEG), r * Math.cos(th * DEG)));
+        tip = add(c, mul(T, len + r));
+      }
+      out.push({ s0: s0 + j0, s1: s0 + j1, i0, i1, rings: rs, tip });
+    }
   }
   return out;
 }
@@ -884,7 +1030,8 @@ export function headFacets(n) { return n * Math.max(1, Math.round(48 / n)); }
 function loftHead(kind) {
   return (st, p, ctx) => {
     const n = tubeFacets(ctx);
-    return tubeThrough([st, ...headRings(kind, st, st.t, ctx, headFacets(n), num(p.bodyR, st.r))], n);
+    const R = num(p.bodyR, st.r), rings = headRings(kind, st, st.t, ctx, headFacets(n), R);
+    return tubeThrough([st, ...rings], n, headBranches(HEAD_LOFTS[kind], rings, 1, st, st.t, R));
   };
 }
 
@@ -1024,16 +1171,10 @@ export const HEADS = {
     return asPart(unionAll([skull, snout, eye(1), eye(-1)]), st);
   },
 
-  bug: (st, p, ctx) => {
-    const r = HEAD_R * st.r, { n, rings } = partQ(ctx);
-    const root = Math.min(0.9 * r, st.reach ?? 0.9 * r);
-    const head = sphere(1.08 * r, { segments: n, rings, z0: -1.08 * r }).translate(0, 0, 1.08 * r - root);
-    // Antennae: raked forward and up from the brow, one each side.
-    const antenna = side => cylinder(thin(0.09 * r), 1.4 * r, { segments: 8 })
-      .rotateY(35 * DEG).rotateZ(side * 20 * DEG)
-      .translate(0.7 * r, side * 0.4 * r, 1.4 * r - root);
-    return asPart(unionAll([head, antenna(1), antenna(-1)]), st);
-  },
+  bug: loftHead('bug'),
+
+  snake: loftHead('snake'),
+
 
   capybara: loftHead('capybara'),
 
@@ -1835,12 +1976,12 @@ export const SPECIES = [
     profile: 'tapered', head: 'dragon', tail: 'spade', dorsal: 'crown', seams: 'nested', section: 'low',
     limbs: { pairs: 2, kind: 'clawed', at: [0.25, 0.55] }, articulate: ['spine', 'jaw'] },
 
-  { id: 'snake', name: 'Snake', joint: 'ball', segments: 18, segLen: 11, bodyR: 7,
-    profile: 'tapered', head: 'blunt', tail: 'taper', dorsal: 'none',
+  { id: 'snake', name: 'Snake', joint: 'ball', segments: 18, segLen: 12, bodyR: 7,
+    profile: 'tapered', head: 'snake', tail: 'whip', dorsal: 'none', seams: 'nested', pose: 'coil',
     limbs: { pairs: 0, kind: 'stub', at: [] }, articulate: ['spine'] },
 
-  { id: 'caterpillar', name: 'Caterpillar', joint: 'hinge', segments: 10, segLen: 13, bodyR: 10,
-    profile: 'ribbed', head: 'bug', tail: 'nub', dorsal: 'none',
+  { id: 'caterpillar', name: 'Caterpillar', joint: 'ball', segments: 10, segLen: 16, bodyR: 10,
+    profile: 'ribbed', head: 'bug', tail: 'rump', dorsal: 'none', seams: 'nested', section: 'block',
     limbs: { pairs: 5, kind: 'stub', at: [0.15, 0.3, 0.45, 0.6, 0.75] }, articulate: ['spine'] },
 
   // 4 x 28 on nested seams (Task 20): one loaf cut in four fat slices, as the
@@ -1934,6 +2075,7 @@ export function speciesCarries(id) {
   return {
     joint: s.joint, segments: s.segments, segLen: s.segLen, bodyR: s.bodyR,
     profile: s.profile, head: s.head, tail: s.tail, dorsal: s.dorsal, seams: s.seams || 'open', section: s.section || 'round',
+    ...(s.pose ? { pose: s.pose } : {}),                       // a snake lies coiled
     // Each seam its own measured gap: nested printed perfect at 0.30.
     clearance: fit(s.seams === 'nested' ? 'nested' : 'free'),
     limbPairs: s.limbs.pairs, limbKind: s.limbs.kind,
@@ -2044,7 +2186,7 @@ export default {
     { key: 'head', label: 'Head', type: 'enum', def: 'blunt', group: 'Anatomy',
       options: [{ v: 'none', label: 'None' }, { v: 'blunt', label: 'Blunt' }, { v: 'dragon', label: 'Dragon' },
                 { v: 'lizard', label: 'Lizard' }, { v: 'fish', label: 'Fish' }, { v: 'bug', label: 'Bug' },
-                { v: 'capybara', label: 'Capybara' }],
+                { v: 'capybara', label: 'Capybara' }, { v: 'snake', label: 'Snake' }],
       help: 'Fused to the first segment. Purely cosmetic unless the jaw articulates.' },
     { key: 'tail', label: 'Tail', type: 'enum', def: 'taper', group: 'Anatomy',
       options: [{ v: 'taper', label: 'Taper' }, { v: 'spike', label: 'Spike' }, { v: 'fan', label: 'Fan' },
