@@ -1984,10 +1984,10 @@ export const SPECIES = [
     profile: 'ribbed', head: 'bug', tail: 'rump', dorsal: 'none', seams: 'nested', section: 'block',
     limbs: { pairs: 5, kind: 'stub', at: [0.15, 0.3, 0.45, 0.6, 0.75] }, articulate: ['spine'] },
 
-  // 4 x 28 on nested seams (Task 20): one loaf cut in four fat slices, as the
-  // MakerWorld capybaras are. At 6 x 20 nested welded its legs into the next
-  // slice; 3 x 32, 4 x 26, 4 x 30 and 5 x 24 all measured clean, and 4 x 28
-  // keeps the old length. Clean at every pose and quality, 0.2949 mm at normal.
+  // 3 x 26 on a 16 mm body, nested (ruling 90): one humped loaf in three fat
+  // slices, after the MakerWorld flexi capybaras. 26 mm is the shortest slice
+  // a nested seam with its socket fits on this body, so three slices is the
+  // count; a thinner-slice joint was ruled out (Sam's call, 2026-09-27).
   { id: 'capybara', name: 'Capybara', joint: 'ball', segments: 3, segLen: 26, bodyR: 16,
     profile: 'loaf', head: 'capybara', tail: 'rump', dorsal: 'none', seams: 'nested',
     limbs: { pairs: 2, kind: 'stub', at: [0.22, 0.72] }, articulate: ['spine'] },
@@ -2289,7 +2289,7 @@ export default {
     if (p.joint !== 'hinge') {
       const g = ballGeometry({ r: rMin, clearance: c, swingDeg: num(p.swing, 25) });
       const wallLeft = rMin - (g.ballR + g.c + g.wall);
-      if (wallLeft < 0.8) {
+      if (wallLeft < 0.8 - 1e-9) {   // 0.7999999999999998 is 0.8
         out.push({ param: 'bodyR', severity: 'error',
           message: `The thinnest jointed part of the body is ${rMin.toFixed(1)} mm in radius, which leaves ` +
                    `${wallLeft.toFixed(2)} mm of wall around a ${g.ballR.toFixed(1)} mm socket. Two ` +
@@ -2344,6 +2344,22 @@ export default {
         message: `A ${p.head} head has no muzzle to split — an opening jaw needs a ` +
                  `dragon, lizard or fish head.` });
     }
+
+    // The jaw's barrel is captive only while the socket's open quadrant, a
+    // chord of sqrt(2) x (Rk + c), is narrower than the barrel (splitHead's
+    // derivation). Rk scales with the head and c does not, so a small head at
+    // a wide clearance lets the mandible fall out: bodyR 4.5 flat at 0.6 mm.
+    if (p.jaw && JAW_HEADS.includes(p.head) && p.species !== 'gauge') {
+      const r0 = num(p.bodyR, 9) * prof(0);
+      const { Rk } = jawGeometry(HEAD_R * r0, c);
+      if (Math.SQRT2 * (Rk + c) >= 2 * Rk) {
+        const need = (c * Math.SQRT2 / (2 - Math.SQRT2)) / (0.28 * HEAD_R * prof(0));
+        out.push({ param: 'jaw', severity: 'error',
+          message: `At ${c.toFixed(2)} mm clearance the jaw's ${(2 * Rk).toFixed(1)} mm barrel is narrower ` +
+                   `than its socket's mouth and the jaw will fall out. Narrow the clearance or raise ` +
+                   `the body radius above ${need.toFixed(1)} mm.` });
+      }
+    }
     return out;
   },
   hints(p) {
@@ -2367,7 +2383,8 @@ export default {
     } else if (f.tightened) {
       notes.push(`Tightened from ${num(p.tight, 0.5).toFixed(2)} to ${f.tight.toFixed(2)} to fit the bed.`);
     }
-    notes.push(`The joint clearance is ${num(p.clearance, fit('free')).toFixed(2)} mm. ` + fitNote('free'));
+    const seat = p.seams === 'nested' && p.joint !== 'hinge' ? 'nested' : 'free';
+    notes.push(`The joint clearance is ${num(p.clearance, fit(seat)).toFixed(2)} mm. ` + fitNote(seat));
     notes.push('Flex every joint through its range once, gently, before playing with it — it frees ' +
                'any whisker of stringing across the gaps.');
     return { notes };

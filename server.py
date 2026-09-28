@@ -756,13 +756,23 @@ def resolve_static(url_path):
     return full
 
 
+class Server(ThreadingHTTPServer):
+    # socketserver's default listen backlog is 5. The page imports 23
+    # generator modules and the kernel under them at once, and Chrome's
+    # connections overflowed that queue: a refused fetch of one shared kernel
+    # module failed every generator that imports it, so the catalogue opened
+    # with 6 to 17 of 23 (five boots out of five at 5, none at 128, measured
+    # 2026-09-28 on the same tree).
+    request_queue_size = 128
+
+
 def main():
     util.ensure_dirs()
     # The AppImage takes a moment to mount; find out what version it is off the
     # request path so /api/health never blocks on it.
     threading.Thread(target=slicer.probe_version, daemon=True).start()
     made_api.start()  # the printer watcher; the only thing that moves a Made job
-    server = ThreadingHTTPServer(("0.0.0.0", PORT), BluesheetHandler)
+    server = Server(("0.0.0.0", PORT), BluesheetHandler)
     server.daemon_threads = True
     print(f"[{util.iso()}] Bluesheet {VERSION} on http://0.0.0.0:{PORT}  (root {ROOT})",
           flush=True)

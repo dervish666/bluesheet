@@ -98,4 +98,32 @@ for (const head of JAW_HEADS) {
   check('the capybara still builds, head fused, when asked anyway', shellCount(capy) === 4, `${shellCount(capy)}`);
 }
 
+// ---------------------------------------------------------------------------
+// A small head at a wide clearance cannot hold its jaw: the socket's open
+// quadrant is wider than the barrel. Pulled out through that quadrant, forward
+// and down in the head's frame, the mandible never touches the skull at
+// bodyR 4.5 and catches at 9. validate() has to agree with the pull.
+// ---------------------------------------------------------------------------
+{
+  const c = 0.6;
+  const pulledFree = (r) => {
+    const rh = HEAD_R * r, g = jawGeometry(rh, c);
+    const { cranium, mandible } = splitHead(HEADS.dragon(here(r), { clearance: c }, C), rh, { clearance: c });
+    let worst = 0;
+    for (let k = 1; k <= 8; k++) {
+      const s = k * 0.25 * g.Rk / Math.SQRT2;
+      worst = Math.max(worst, intersect(cranium, mandible.clone().translate(-s, 0, s)).volume());
+    }
+    return worst < 1e-6;
+  };
+  const jawErr = (bodyR) => gen.validate({ ...D, bodyR, profile: 'flat', head: 'dragon', jaw: true, clearance: c, limbPairs: 0 })
+    .some(i => i.param === 'jaw' && i.severity === 'error');
+  check('at bodyR 4.5 and 0.6 mm the mandible pulls straight out of the skull', pulledFree(4.5));
+  check('and validate() calls that an error', jawErr(4.5));
+  check('at bodyR 9 the same pull catches on the skull', !pulledFree(9));
+  check('and validate() lets it through', !jawErr(9));
+  check('the default clearance holds a jaw on the smallest body', !gen.validate({ ...D, bodyR: 4, head: 'dragon', jaw: true })
+    .some(i => i.param === 'jaw'));
+}
+
 done();

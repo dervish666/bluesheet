@@ -36,7 +36,18 @@ check('NaN does not produce a different hash each time', paramHash({ a: NaN }) =
   check('the same image hashes the same', paramHash({ photo: a }) === paramHash({ photo: b }));
   check('different image content hashes differently', paramHash({ photo: a }) !== paramHash({ photo: c }));
   check('different image size hashes differently', paramHash({ photo: a }) !== paramHash({ photo: d }));
-  check('a large field is sampled, not walked, so hashing stays fast', (() => {
+  // The build cache is keyed on this (js/ui/build.js), so a change the hash
+  // cannot see hands back the previous mesh. Index 1 was skipped by the old
+  // every-64th sampling; 16 m was lost with the old low-16-bit mix.
+  {
+    const field = (edit) => { const d = new Float32Array(512 * 512).fill(0.5); edit(d); return { w: 512, h: 512, gray: d }; };
+    const base = paramHash({ photo: field(() => {}) });
+    check('one changed pixel anywhere in a field changes the hash',
+      paramHash({ photo: field(d => { d[1] = 0.6; }) }) !== base);
+    const hm = (dz) => ({ w: 2, h: 2, data: new Float32Array([100, 200, 300, 400 + dz]) });
+    check('a height that moves by 16 m changes the hash', paramHash({ t: hm(0) }) !== paramHash({ t: hm(16) }));
+  }
+  check('a large field hashes fast enough to key the build cache', (() => {
     const big = img(2000, 2000, i => (i % 97) / 97);
     const t = process.hrtime.bigint();
     paramHash({ photo: big });

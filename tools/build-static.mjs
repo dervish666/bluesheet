@@ -25,6 +25,16 @@ if (OUT === ROOT || ROOT.startsWith(OUT + '/')) { console.error('refusing to bui
 const COPY = ['js', 'css', 'assets'];
 const SKIP = /(^|\/)(__pycache__|\.DS_Store)(\/|$)|\.LICENSE\.txt$|\/README\.md$/;
 
+// The build replaces OUT wholesale, so a mistyped path would delete whatever
+// is there. Only an empty directory or a previous build of this (its page
+// carries is-static) may be replaced.
+if (existsSync(OUT) && readdirSync(OUT).length) {
+  const page = join(OUT, 'index.html');
+  if (!existsSync(page) || !readFileSync(page, 'utf8').includes('is-static')) {
+    console.error(`refusing to replace ${OUT}: not empty and not a previous Bluesheet static build`);
+    process.exit(2);
+  }
+}
 rmSync(OUT, { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });
 for (const dir of COPY) {

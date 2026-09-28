@@ -144,7 +144,7 @@ def _build():
             # A font we cannot describe is still a font the browser may be able to
             # use, so it is listed with the reason rather than hidden.
             entry["error"] = str(e)
-        licence = next((l for l in licences if l.startswith(stem)), None)
+        licence = next((name for name in licences if name.startswith(stem)), None)
         if licence:
             entry["licence"] = {"file": licence, "url": "/assets/fonts/" + licence}
         # A sensible default for a picker that has not loaded anything yet.

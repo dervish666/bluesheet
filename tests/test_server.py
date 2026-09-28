@@ -244,6 +244,9 @@ def test_slicer_settings():
     check("job id is content addressed", ident == same)
     check("job id follows geometry", ident != other)
     check("job id follows placement", ident != moved)
+    check("job id follows the object's name",
+          slicer.job_id([{"data": b"abc", "name": "one"}], s)
+          != slicer.job_id([{"data": b"abc", "name": "two"}], s))
 
 
 # ---------------------------------------------------------------- placement
@@ -358,10 +361,10 @@ def test_gcode():
     check("travel breaks the path",
           list(parsed["layers"][0]["paths"][0].pts)[:2] == [0.0, 0.0])
     check("travel not drawn by default",
-          all(p.type != "travel" for l in parsed["layers"] for p in l["paths"]))
+          all(p.type != "travel" for layer in parsed["layers"] for p in layer["paths"]))
     with_travel = gcode.parse(SAMPLE_GCODE, include_travel=True)
     check("travel drawn on request",
-          any(p.type == "travel" for l in with_travel["layers"] for p in l["paths"]))
+          any(p.type == "travel" for layer in with_travel["layers"] for p in layer["paths"]))
 
     # Collinear runs collapse; a straight wall is two points however many moves
     # drew it.
@@ -397,7 +400,7 @@ def test_gcode():
     check("sheds infill first", "sparse" in thin["downsample"]["droppedTypes"])
     check("meets the budget", thin["downsample"]["points"] <= 3000,
           thin["downsample"]["points"])
-    check("keeps walls", any(p["type"] == "outer" for l in thin["layers"] for p in l["paths"]))
+    check("keeps walls", any(p["type"] == "outer" for layer in thin["layers"] for p in layer["paths"]))
     ranged = gcode.view(doc, layer_from=1, layer_to=2)
     check("layer range honoured", len(ranged["layers"]) == 1)
 

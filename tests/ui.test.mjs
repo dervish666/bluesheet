@@ -322,9 +322,13 @@ await withPage(async (page) => {
   const term = cardFields.name.split(/\s+/)[0].slice(0, 4).toLowerCase();
   await page.send('Input.dispatchKeyEvent', { type: 'char', text: term[0] });
   for (const ch of term.slice(1)) await page.send('Input.dispatchKeyEvent', { type: 'char', text: ch });
-  await page.sleep(260);
-  const filtered = await q(`(() => ({n: document.querySelectorAll('[data-cat-cards] .card').length,
+  // Poll, don't sleep: the search is debounced 90 ms, but the catalogue is
+  // drawing its thumbnails on the same thread and a fixed 260 ms wait read
+  // the unfiltered cards on most runs (2026-09-28). Five seconds is the bound.
+  const readCards = () => q(`(() => ({n: document.querySelectorAll('[data-cat-cards] .card').length,
     value: document.querySelector('[data-cat-search]').value}))()`);
+  let filtered = await readCards();
+  for (let t = 0; t < 50 && filtered.n >= catOpen.cards; t++) { await page.sleep(100); filtered = await readCards(); }
   check('typing in the catalogue filters it', filtered.n < catOpen.cards && filtered.n >= 1,
     `"${filtered.value}" leaves ${filtered.n} of ${catOpen.cards}`);
 

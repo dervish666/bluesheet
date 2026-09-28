@@ -5,6 +5,7 @@ import { suite, check, near, done } from './lib/assert.mjs';
 import { ctx, defaults, asMesh } from './lib/genconform.mjs';
 import { shellCount } from './lib/gapcheck.mjs';
 import { isSolid } from './lib/meshcheck.mjs';
+import { fit, fitNote } from '../js/kernel/fit.js';
 import gen, { fitToBed, reachPoints, BED, REACH_PAST_SPINE, SPECIES, speciesCarries } from '../js/gen/creature.js';
 
 suite('gen creature fit');
@@ -39,6 +40,16 @@ const errs = (over, param) => gen.validate({ ...D, ...over }).filter(i => i.seve
   check('something that already fits is left exactly as asked', fine.pose === D.pose && !fine.tightened && fine.tight === D.tight,
     JSON.stringify(fine));
   check('and hints() says nothing about the pose', !gen.hints(D).notes.some(n => /overflow|tighten/i.test(n)));
+
+  // The clearance note quotes the measurement for the seam actually built: a
+  // nested creature at 0.30 used to be told about the open joint's 0.35.
+  const note = (over) => gen.hints({ ...D, ...over }).notes.find(n => /joint clearance is/.test(n)) || '';
+  const nested = note({ seams: 'nested', clearance: fit('nested') });
+  check('a nested creature quotes the nested measurement',
+    nested === `The joint clearance is ${fit('nested').toFixed(2)} mm. ` + fitNote('nested'), nested);
+  check('an open one quotes the open-joint measurement', note({ seams: 'open' }).endsWith(fitNote('free')));
+  check('and a hinge, whose seams setting is hidden, is never called nested',
+    note({ joint: 'hinge', seams: 'nested' }).endsWith(fitNote('free')));
 }
 
 // ---------------------------------------------------------------------------

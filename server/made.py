@@ -60,7 +60,6 @@ gzip and body limits as the rest of the surface rather than a second convention.
 """
 import base64
 import binascii
-import io
 import json
 import os
 import re

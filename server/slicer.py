@@ -422,11 +422,14 @@ def _first(value):
 
 def job_id(objects, settings):
     """Content hash of exactly what determines the output: the geometry bytes,
-    where each object sits, and the canonical settings. Identical input returns
-    the cached slice without running the AppImage."""
+    each object's name, where it sits, and the canonical settings. Identical
+    input returns the cached slice without running the AppImage. The name is
+    in it because the cached meta and 3mf carry the name they were sliced
+    under; without it a renamed object came back with the old one."""
     parts = [util.canonical(settings)]
     for obj in objects:
         parts.append(util.digest(obj["data"], length=32))
+        parts.append(str(obj.get("name") or ""))
         parts.append(f"{obj.get('x', 0):.4f},{obj.get('y', 0):.4f},{obj.get('rot', 0):.3f}")
     return util.digest(*parts, length=16)
 
