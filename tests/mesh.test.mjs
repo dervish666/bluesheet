@@ -306,6 +306,34 @@ check('toString summarises the mesh', /Mesh\(8v 12t/.test(String(F.cube(10))), S
     `${m.triCount} -> ${healed.triCount} triangles, ${m.weld(1e-5).vertCount} -> ${healed.vertCount} vertices`);
   near('healing does not change the enclosed area', healed.surfaceArea(), m.surfaceArea(), 1e-9);
 
+  // The plain fan starts at corner a, which sits on the split edge, so it lays
+  // a-m1-m2 and a-m2-b flat along that edge: zero area. clean: true must not.
+  const zeroArea = (mm) => { let n = 0; for (let t = 0; t < mm.triCount; t++) if (!(mm.triArea(t) > 1e-10)) n++; return n; };
+  const tidy = m.healTJunctions(1e-5, { clean: true });
+  check('the default fan from a corner on the split edge lays zero-area triangles (kept for its callers)',
+    zeroArea(healed) > 0, `${zeroArea(healed)} zero-area triangles`);
+  check('clean: true heals the same seam with no zero-area triangles',
+    zeroArea(tidy) === 0 && topology(tidy).boundary === after.boundary,
+    `${zeroArea(tidy)} zero-area, ${topology(tidy).boundary} boundary edges`);
+  near('and the clean fan covers the same area', tidy.surfaceArea(), m.surfaceArea(), 1e-9);
+  {
+    // Two splitters on each of two edges of one triangle: every fan apex then
+    // sits on a line with two other points, which is the case the ear clipping
+    // exists for.
+    const q = new Mesh();
+    const A = q.addVertex(0, 0, 0), B = q.addVertex(10, 0, 0), Cc = q.addVertex(0, 10, 0);
+    const p1 = q.addVertex(4, 0, 0), p0 = q.addVertex(7, 0, 0), p2 = q.addVertex(0, 4, 0), p3 = q.addVertex(0, 7, 0);
+    const D = q.addVertex(5, -5, 0), E = q.addVertex(-5, 5, 0);
+    q.addTri(A, B, Cc);
+    q.addTri(A, D, p1); q.addTri(p1, D, p0); q.addTri(p0, D, B);
+    q.addTri(A, p2, E); q.addTri(p2, p3, E); q.addTri(p3, Cc, E);
+    const hq = q.healTJunctions(1e-5, { clean: true });
+    check('clean: true with splitters on two edges of one triangle: closed and no zero-area triangles',
+      zeroArea(hq) === 0 && topology(hq).boundary < topology(q).boundary,
+      `${zeroArea(hq)} zero-area, boundary ${topology(q).boundary} -> ${topology(hq).boundary}`);
+    near('and it covers the same area', hq.surfaceArea(), q.surfaceArea(), 1e-9);
+  }
+
   // A closed solid must come back untouched — this is safe to call unconditionally.
   for (const [name, src] of [['cube', F.cube(10)], ['sphere', F.icosphere(10, 2)], ['torus', F.torus(10, 3)]]) {
     const h = src.healTJunctions();

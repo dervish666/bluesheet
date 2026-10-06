@@ -8,7 +8,7 @@
  * │        Accepts a kernel Mesh (crease-aware normals are computed here via │
  * │        mesh.toRenderBuffers) or a buffer set already built in a worker.  │
  * │ v.setGcode(data | gcodeText | null)   {layers:[{z, paths:[{type,pts}]}]} │
- * │ v.setMode('solid' | 'overhang' | 'wire' | 'gcode')                      │
+ * │ v.setMode('solid' | 'overhang' | 'wire' | 'gcode' | 'backlit')          │
  * │ v.setClip(z | null)              cross-section plane on Z; null = off    │
  * │ v.clipRange()                 -> [minZ, maxZ] for the slider            │
  * │ v.setOverhangThreshold(deg)      overhang view threshold, default 50     │
@@ -33,7 +33,7 @@
  *   one finger / left drag      orbit          two fingers / right drag  pan
  *   pinch                       zoom           two-finger twist          roll
  *   double tap / double click   fit            wheel                     zoom
- *   1..6 presets · F fit · W wire · O overhang · S solid · R level the view
+ *   1..6 presets · F fit · W wire · O overhang · B backlit · S solid · R level
  *
  * Rendering is on demand. A frame is drawn when something actually changed;
  * there is no idle loop, and `document.hidden` stops the viewer dead. This
@@ -47,7 +47,13 @@ import { PlateRenderer, buildShadowQuad, PLATE_Z } from './plate.js';
 import { ToolpathRenderer, buildToolpathBuffers, typeColorArray, typeMask, MOVE_TYPES, MOVE_COLORS, MOVE_LABELS } from './gcode.js';
 import { meshToBuffers, buildEdgeIndices, boxUnion, parseColor, toLinear, overhangStats } from './geometry.js';
 
-export const MODES = ['solid', 'overhang', 'wire', 'gcode'];
+export const MODES = ['solid', 'overhang', 'wire', 'gcode', 'backlit'];
+
+// The backlit view's model of white PLA. Chosen, not measured: 1.8 per mm puts
+// lithophane's default 0.8 mm at the bare lamp and its 3.0 mm at 2% of it
+// (about 17% grey once gamma-encoded), with the midtones landing dark the way
+// lithophane's "raise the gamma to about 1.3" note says real PLA does.
+export const BACKLIT_PLA = Object.freeze({ mu: 1.8, whiteMM: 0.8, floor: 0.01 });
 
 export const DEFAULT_THEME = {
   // surfaces
@@ -61,6 +67,8 @@ export const DEFAULT_THEME = {
   // hemisphere of workshop-ceiling above / workbench below
   key: '#fff6ea', fill: '#8fa4c4', rim: '#9ec5ff',
   sky: '#6b7a92', ground: '#2a2521',
+  // backlit: a warm-white bulb (about 3000 K) in a dark room
+  lamp: '#ffd6a5', nightTop: '#0b0e12', nightBottom: '#030405',
 };
 
 const DEFAULTS = {
@@ -169,7 +177,9 @@ export class Viewer {
       line: new Program(gl, S.LINE_VS, S.LINE_FS, 'line'),
       shadow: new Program(gl, S.SHADOW_VS, S.SHADOW_FS, 'shadow'),
       path: new Program(gl, S.TOOLPATH_VS, S.TOOLPATH_FS, 'toolpath'),
+      backlit: new Program(gl, S.BACKLIT_VS, S.BACKLIT_FS, 'backlit'),
     };
+    this._peel = null;             // backlit's depth target, made on first use
 
     // Buffers are created once and refilled; nothing here is reallocated per
     // frame, which is the whole trick to surviving a 500k-triangle model.
@@ -193,6 +203,7 @@ export class Viewer {
       shadow: gl.createVertexArray(),
       cap: gl.createVertexArray(),
       shadowQuad: gl.createVertexArray(),
+      backlit: gl.createVertexArray(),
     };
 
     // Cap quad: 6 vertices, normals all +Z, positions rewritten when the clip
@@ -300,6 +311,11 @@ export class Viewer {
 
     gl.bindVertexArray(this.vao.shadow);
     setAttrib(gl, this.programs.shadow.attrib('a_position'), this.buf.pos, 3);
+    this.buf.idx.bind();
+    gl.bindVertexArray(null);
+
+    gl.bindVertexArray(this.vao.backlit);
+    setAttrib(gl, this.programs.backlit.attrib('a_position'), this.buf.pos, 3);
     this.buf.idx.bind();
     gl.bindVertexArray(null);
   }
@@ -537,6 +553,7 @@ export class Viewer {
       for (const k in this.buf) this.buf[k].dispose();
       for (const k in this.vao) gl.deleteVertexArray(this.vao[k]);
       for (const k in this.programs) this.programs[k].dispose();
+      if (this._peel) { gl.deleteFramebuffer(this._peel.fbo); gl.deleteTexture(this._peel.tex); }
       // Free the drawing buffer immediately rather than waiting for GC; the
       // UI creates and destroys viewers when the user switches generator.
       const ext = gl.getExtension('WEBGL_lose_context');
@@ -657,14 +674,19 @@ export class Viewer {
     const eye = this.camera.eye;
     const lights = this._lightRig();
 
-    this._drawBackground();
-    if (this.opts.plate) this._drawPlate(vp);
+    const backlit = this._mode === 'backlit';
+    this._drawBackground(backlit);
+    if (this.opts.plate && !backlit) this._drawPlate(vp);
 
     const showMesh = this._buffers && this._mode !== 'gcode';
-    if (showMesh && this.opts.shadows && this._buffers.triCount <= this.opts.shadowTriBudget && this.hasStencil) {
-      this._drawShadow(vp);
+    if (showMesh && backlit) {
+      this._drawBacklit(vp);
+    } else {
+      if (showMesh && this.opts.shadows && this._buffers.triCount <= this.opts.shadowTriBudget && this.hasStencil) {
+        this._drawShadow(vp);
+      }
+      if (showMesh) this._drawSolid(vp, eye, lights);
     }
-    if (showMesh) this._drawSolid(vp, eye, lights);
     if (this._mode === 'gcode') this._drawToolpaths(vp, eye, lights);
 
     this.stats.ms = performance.now() - t0;
@@ -672,11 +694,11 @@ export class Viewer {
     this._emit('render', this.stats);
   }
 
-  _drawBackground() {
+  _drawBackground(night = false) {
     const gl = this.gl;
     const p = this.programs.bg.use();
-    p.set('u_top', this._col('bgTop'));
-    p.set('u_bottom', this._col('bgBottom'));
+    p.set('u_top', this._col(night ? 'nightTop' : 'bgTop'));
+    p.set('u_bottom', this._col(night ? 'nightBottom' : 'bgBottom'));
     gl.disable(gl.DEPTH_TEST);
     gl.depthMask(false);
     gl.disable(gl.BLEND);
@@ -741,6 +763,88 @@ export class Viewer {
     gl.bindVertexArray(null);
     gl.disable(gl.BLEND);
     gl.disable(gl.STENCIL_TEST);
+    this.stats.calls += 2;
+  }
+
+  /** Depth-only target the size of the drawing buffer. DEPTH_COMPONENT32F is
+   *  core WebGL2, so this needs no extension; NEAREST because a depth texture
+   *  cannot be filtered and the shader texelFetches it anyway. */
+  _ensurePeel() {
+    const gl = this.gl;
+    const w = this.canvas.width, h = this.canvas.height;
+    if (this._peel && this._peel.w === w && this._peel.h === h) return this._peel;
+    if (this._peel) { gl.deleteFramebuffer(this._peel.fbo); gl.deleteTexture(this._peel.tex); }
+    const tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texStorage2D(gl.TEXTURE_2D, 1, gl.DEPTH_COMPONENT32F, w, h);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    const fbo = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, tex, 0);
+    gl.drawBuffers([gl.NONE]);
+    gl.readBuffer(gl.NONE);
+    const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    if (status !== gl.FRAMEBUFFER_COMPLETE) {
+      gl.deleteFramebuffer(fbo); gl.deleteTexture(tex);
+      throw new Error(`backlit: depth target incomplete (0x${status.toString(16)})`);
+    }
+    this._peel = { fbo, tex, w, h };
+    return this._peel;
+  }
+
+  /**
+   * Backlit view: two passes, see BACKLIT_FS. Pass 0 keeps the nearest front
+   * face per pixel in a depth texture; pass 1 draws back faces into the canvas,
+   * discarding every one not behind it, and LESS keeps the nearest survivor.
+   * The near wall's thickness along the ray is the distance between the two.
+   */
+  _drawBacklit(vp) {
+    const gl = this.gl;
+    const peel = this._ensurePeel();
+    const p = this.programs.backlit.use();
+    p.set('u_viewProj', vp);
+    p.set('u_invViewProj', this.camera.inverseViewProjection(this._w, this._h));
+    p.set('u_size', [peel.w, peel.h]);
+    p.set('u_clipOn', this._clipOn ? 1 : 0);
+    p.set('u_clipZ', this._clipZ);
+    p.set('u_mu', BACKLIT_PLA.mu);
+    p.set('u_whiteMM', BACKLIT_PLA.whiteMM);
+    p.set('u_floor', BACKLIT_PLA.floor);
+    p.set('u_lamp', this._col('lamp'));
+    gl.bindVertexArray(this.vao.backlit);
+    gl.disable(gl.BLEND);
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthFunc(gl.LESS);
+    gl.depthMask(true);
+    gl.enable(gl.CULL_FACE);
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, peel.fbo);
+    gl.viewport(0, 0, peel.w, peel.h);
+    gl.clear(gl.DEPTH_BUFFER_BIT);
+    gl.cullFace(gl.BACK);
+    p.set('u_pass', 0);
+    gl.drawElements(gl.TRIANGLES, this._buffers.indexCount, this._indexType, 0);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+
+    gl.clear(gl.DEPTH_BUFFER_BIT);
+    gl.cullFace(gl.FRONT);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, peel.tex);
+    p.set('u_front', 0);
+    p.set('u_pass', 1);
+    gl.drawElements(gl.TRIANGLES, this._buffers.indexCount, this._indexType, 0);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+
+    gl.bindVertexArray(null);
+    gl.cullFace(gl.BACK);
+    gl.disable(gl.CULL_FACE);
+    gl.depthFunc(gl.LEQUAL);
     this.stats.calls += 2;
   }
 
@@ -1132,6 +1236,7 @@ export class Viewer {
     else if (k === 'f') this.fit();
     else if (k === 'w') this.setMode(this._mode === 'wire' ? 'solid' : 'wire');
     else if (k === 'o') this.setMode(this._mode === 'overhang' ? 'solid' : 'overhang');
+    else if (k === 'b') this.setMode(this._mode === 'backlit' ? 'solid' : 'backlit');
     else if (k === 's') this.setMode('solid');
     else if (k === 'r') { this.camera.roll = 0; this._changed(); }
     else if (k === 'escape') this.stopBuild();
@@ -1184,6 +1289,15 @@ export class Viewer {
         `<div style="height:8px;border-radius:4px;background:linear-gradient(90deg,${this.theme.object},${this.theme.warn} 45%,${this.theme.over})"></div>` +
         `<div style="display:flex;justify-content:space-between;opacity:.75"><span>0&deg;</span><span>${t}&deg;</span><span>90&deg;</span></div>` +
         (o ? `<div style="margin-top:4px;opacity:.9">${o.overhangPct.toFixed(1)}% of area · worst ${o.worstDeg.toFixed(0)}&deg;</div>` : '');
+    } else if (this._mode === 'backlit') {
+      const { mu, whiteMM } = BACKLIT_PLA;
+      const at = (t) => Math.min(1, Math.exp(-mu * (t - whiteMM)));
+      el.style.display = 'block';
+      el.innerHTML =
+        `<div style="margin-bottom:5px">backlit · white PLA, &mu; ${mu}/mm</div>` +
+        `<div style="height:8px;border-radius:4px;background:linear-gradient(90deg,${this.theme.lamp},#000)"></div>` +
+        `<div style="display:flex;justify-content:space-between;opacity:.75"><span>${whiteMM} mm</span><span>${(whiteMM + 1).toFixed(1)} mm ${Math.round(at(whiteMM + 1) * 100)}%</span><span>3 mm ${Math.round(at(3) * 100)}%</span></div>` +
+        `<div style="margin-top:4px;opacity:.9">near wall only, along the view ray</div>`;
     } else if (this._mode === 'gcode' && this._gcode) {
       const counts = this._gcode.typeCounts || {};
       const rows = MOVE_TYPES.filter(t => counts[t]).map(t =>

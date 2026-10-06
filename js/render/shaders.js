@@ -5,9 +5,10 @@
  * `#version 300 es` must be the very first characters of a shader, before any
  * whitespace, which is why every source below starts hard against the backtick.
  *
- * Five programs:
+ * Six programs:
  *   BACKGROUND  attribute-less full-screen triangle (gradient + vignette)
  *   SOLID       the model: lit shading, overhang colouring, Z clip, cut cap
+ *   BACKLIT     the model as transmitted light, thickness from a depth peel
  *   LINE        plate grid, bed outline, axes, wireframe — per-vertex colour
  *   SHADOW      the model flattened onto the plate, stencil-only
  *   TOOLPATH    instanced G-code ribbons, expanded around the segment axis
@@ -265,6 +266,63 @@ void main() {
   vec3 c = mix(v_color, v_color * (0.42 + 0.58 * d) + spec, u_shade);
   c = mix(c, min(c * 1.7 + 0.12, vec3(1.0)), v_top * 0.85);   // the layer being laid
   fragColor = vec4(c * u_alpha, u_alpha);
+}`;
+
+// BACKLIT: the model as light coming through it, two passes over the mesh.
+//
+// Pass 0 draws front faces only into a depth texture: the near wall's outer
+// surface, per pixel. Pass 1 draws back faces with LESS depth testing and
+// discards any at or in front of that depth, so what survives is the nearest
+// back face BEHIND the near wall: one step of depth peeling. The two depths are
+// unprojected through the same pixel and their distance is the path the light
+// takes through the near wall along this view ray. Looking at a lamp shade from
+// outside you see one wall's picture, not both walls stacked, and this is what
+// keeps it that way.
+//
+// Brightness is Beer-Lambert, exp(-mu * t), offset so `u_whiteMM` reads as full
+// lamp and clamped above it. Transmitted light sees only thickness, so seen
+// from behind the picture is mirrored here exactly as it is on the print.
+export const BACKLIT_VS = `#version 300 es
+in vec3 a_position;
+uniform mat4 u_viewProj;
+out vec3 v_world;
+void main() {
+  v_world = a_position;
+  gl_Position = u_viewProj * vec4(a_position, 1.0);
+}`;
+
+export const BACKLIT_FS = `#version 300 es
+precision highp float;
+precision highp sampler2D;
+in vec3 v_world;
+uniform int u_pass;            // 0 = near front faces into the depth texture, 1 = light
+uniform sampler2D u_front;     // pass 0's depth, one texel per drawing-buffer pixel
+uniform mat4 u_invViewProj;
+uniform vec2 u_size;           // drawing buffer, px
+uniform int u_clipOn;
+uniform float u_clipZ;
+uniform float u_mu;            // attenuation, per mm
+uniform float u_whiteMM;       // thickness that reads as the bare lamp
+uniform float u_floor;         // faint ambient so a thick solid is not a hole
+uniform vec3 u_lamp;           // linear RGB
+out vec4 fragColor;
+
+vec3 unproject(vec2 frag, float depth) {
+  vec4 p = u_invViewProj * vec4(vec3(frag / u_size, depth) * 2.0 - 1.0, 1.0);
+  return p.xyz / p.w;
+}
+
+void main() {
+  if (u_clipOn == 1 && v_world.z > u_clipZ) discard;
+  if (u_pass == 0) { fragColor = vec4(0.0); return; }
+  float front = texelFetch(u_front, ivec2(gl_FragCoord.xy), 0).r;
+  if (front >= 1.0) discard;               // no near wall on this ray (cut open)
+  if (gl_FragCoord.z <= front) discard;    // the peel: only what lies behind it
+  float t = distance(unproject(gl_FragCoord.xy, gl_FragCoord.z),
+                     unproject(gl_FragCoord.xy, front));
+  float T = min(exp(-u_mu * (t - u_whiteMM)), 1.0);
+  vec3 c = u_lamp * (T + u_floor);
+  fragColor = vec4(pow(clamp(c, 0.0, 1.0), vec3(1.0 / 2.2)), 1.0);
 }`;
 
 /** Corner lattice for one instanced ribbon quad, as a triangle strip. */

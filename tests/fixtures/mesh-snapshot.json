@@ -1144,14 +1144,36 @@
   ]
  },
  "lithophane/preset:Night-light shade": {
-  "hash": "4461cf42f5032bba",
-  "tris": 267616,
-  "verts": 133808,
-  "vol": 50953.314101,
+  "hash": "4ae3257909a86648",
+  "tris": 293384,
+  "verts": 146688,
+  "vol": 82350.660687,
   "bbox": [
    70,
    70,
-   95
+   106.2
+  ]
+ },
+ "lithophane/preset:E27 pendant shade": {
+  "hash": "02fb1ac02a9dd937",
+  "tris": 293744,
+  "verts": 146864,
+  "vol": 118963.972705,
+  "bbox": [
+   110,
+   110,
+   130
+  ]
+ },
+ "lithophane/preset:E27 table lamp shade": {
+  "hash": "83944426e389ee5c",
+  "tris": 293672,
+  "verts": 146828,
+  "vol": 129403.35078,
+  "bbox": [
+   120,
+   120,
+   130
   ]
  },
  "lithophane/preset:Tea-light arch": {

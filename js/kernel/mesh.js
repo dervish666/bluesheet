@@ -24,6 +24,54 @@ function hash3(x, y, z) {
 }
 const same = (a, b) => a === b || (a !== a && b !== b);
 
+/**
+ * Triangulate a split triangle: its three corners with the splitting vertices
+ * inserted along their edges, in winding order. A fan from poly[0] is right
+ * when no splitter sits on either edge that touches poly[0]; otherwise it lays
+ * zero-area triangles along that edge (corner, splitter, splitter, all on one
+ * line). So: fan from the first corner whose two edges are whole, and failing
+ * that, clip ears that have area. The polygon is convex, so any ear with area
+ * is a valid one.
+ */
+function fanSplit(w, poly, out) {
+  const P = w.positions;
+  const area2 = (i, j, k) => {
+    const ax = P[3 * j] - P[3 * i], ay = P[3 * j + 1] - P[3 * i + 1], az = P[3 * j + 2] - P[3 * i + 2];
+    const bx = P[3 * k] - P[3 * i], by = P[3 * k + 1] - P[3 * i + 1], bz = P[3 * k + 2] - P[3 * i + 2];
+    const cx = ay * bz - az * by, cy = az * bx - ax * bz, cz = ax * by - ay * bx;
+    return cx * cx + cy * cy + cz * cz;
+  };
+  const n = poly.length, tiny = 1e-24;
+  const fanOk = (s) => {
+    for (let k = 1; k + 1 < n; k++) if (!(area2(poly[s], poly[(s + k) % n], poly[(s + k + 1) % n]) > tiny)) return false;
+    return true;
+  };
+  for (let s = 0; s < n; s++) {
+    if (!fanOk(s)) continue;
+    for (let k = 1; k + 1 < n; k++) out.push(poly[s], poly[(s + k) % n], poly[(s + k + 1) % n]);
+    return;
+  }
+  const ring = poly.slice();
+  let guard = 4 * n;
+  while (ring.length > 3 && guard-- > 0) {
+    let cut = -1;
+    for (let i = 0; i < ring.length && cut < 0; i++) {
+      const a = ring[(i + ring.length - 1) % ring.length], b = ring[i], c = ring[(i + 1) % ring.length];
+      if (!(area2(a, b, c) > tiny)) continue;
+      if (ring.length === 4) {
+        const rest = ring.filter((_, k) => k !== i);
+        if (!(area2(rest[0], rest[1], rest[2]) > tiny)) continue;
+      }
+      cut = i;
+    }
+    if (cut < 0) break;
+    const L = ring.length;
+    out.push(ring[(cut + L - 1) % L], ring[cut], ring[(cut + 1) % L]);
+    ring.splice(cut, 1);
+  }
+  for (let k = 1; k + 1 < ring.length; k++) out.push(ring[0], ring[k], ring[k + 1]);
+}
+
 export class Mesh {
   constructor(positions = [], tris = []) {
     this.positions = Array.isArray(positions) ? positions : Array.from(positions);
@@ -283,8 +331,15 @@ export class Mesh {
    * The repair is to split the long edge at the vertices sitting on it, fanning
    * the triangle that owns it. Only boundary edges are touched, so a mesh with
    * no holes is returned unchanged and this is safe to call unconditionally.
+   *
+   * The plain fan from the triangle's first corner lays zero-area triangles
+   * whenever a splitter sits on an edge touching that corner. `clean: true`
+   * triangulates the split polygon without them (fanSplit). It is opt-in
+   * because switching the default re-triangulates coaster, datasculpt,
+   * qrplaque, terrain and the captioned lithophane (11 fingerprints, measured
+   * 2026-10-06), and that is a decision for each of them, not a side effect.
    */
-  healTJunctions(eps = 1e-5) {
+  healTJunctions(eps = 1e-5, { clean = false } = {}) {
     const w = this.weld(eps);
     const edges = new Map();
     for (let t = 0; t < w.triCount; t++) {
@@ -348,7 +403,8 @@ export class Mesh {
           for (const m of mids) poly.push(m);
         }
       }
-      for (let k = 1; k + 1 < poly.length; k++) tris.push(poly[0], poly[k], poly[k + 1]);
+      if (clean) fanSplit(w, poly, tris);
+      else for (let k = 1; k + 1 < poly.length; k++) tris.push(poly[0], poly[k], poly[k + 1]);
     }
     return new Mesh(w.positions.slice(), tris);
   }

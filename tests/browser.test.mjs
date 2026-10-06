@@ -144,6 +144,46 @@ await withPage(async (page) => {
     race.running === false && race.waiters === 0,
     `running=${race.running}, ${race.waiters} waiters`);
 
+  // ---- the backlit view reads a picture ----------------------------------
+  // A lithophane of a picture that is black on its left half and white on its
+  // right, seen from the front in backlit mode. The white half is the thin half
+  // and must glow; the black half must not; and the glow must be on the RIGHT,
+  // or the view is mirroring the picture. A shader that lost its thickness term
+  // renders both halves the same grey and fails the first check.
+  const lit = await page.eval(`(async () => {
+    const w = 200, h = 100, gray = new Float32Array(w * h);
+    for (let y = 0; y < h; y++) for (let x = w / 2; x < w; x++) gray[y * w + x] = 1;
+    await __bluesheet.setGen('lithophane');
+    await __bluesheet.applyPreset('Framed photo for the wall');
+    await __bluesheet.setParam('image', { w, h, gray });
+    await __bluesheet.rebuild();
+    const v = __bluesheet.viewer, before = v.mode;
+    __bluesheet.setMode('backlit');
+    v.setPreset('front'); v.fit();
+    v.render();                         // read back in the same task: no preserveDrawingBuffer
+    const gl = v.gl, b = v._meshBox, zc = (b.min[2] + b.max[2]) / 2, qx = (b.max[0] - b.min[0]) / 6;
+    const sample = (x) => {
+      const p = v.camera.project([x, (b.min[1] + b.max[1]) / 2, zc], v._w, v._h);
+      const k = gl.drawingBufferWidth / v._w;
+      const px = Math.round(p.x * k), py = Math.round(gl.drawingBufferHeight - p.y * k);
+      const d = new Uint8Array(5 * 5 * 4);
+      gl.readPixels(px - 2, py - 2, 5, 5, gl.RGBA, gl.UNSIGNED_BYTE, d);
+      let s = 0; for (let i = 0; i < 25; i++) s += 0.3 * d[i * 4] + 0.59 * d[i * 4 + 1] + 0.11 * d[i * 4 + 2];
+      return { sx: p.x, luma: Math.round(s / 25) };
+    };
+    // Left and right ON SCREEN, not in world X: from behind, world +X is on
+    // the left, and a check keyed to world X cannot see a mirror.
+    const [l, rt] = [sample(-qx), sample(qx)].sort((m, n) => m.sx - n.sx);
+    const r = { left: l.luma, right: rt.luma, mode: v.mode };
+    __bluesheet.setMode(before);
+    return r;
+  })()`);
+  check('backlit: the thin (white) half glows and the thick (black) half does not',
+    lit.mode === 'backlit' && lit.right > 120 && lit.left < lit.right * 0.4,
+    `left ${lit.left}, right ${lit.right} (luma 0..255, mode ${lit.mode})`);
+  check('backlit: the picture is not mirrored from the front', lit.right > lit.left,
+    lit.right === lit.left ? 'both halves the same' : `white half on the ${lit.right > lit.left ? 'right' : 'left'}`);
+
   // ---- clean console ------------------------------------------------------
   const errs = page.errors().filter(e => !/favicon|DevTools/i.test(e));
   check('the console is clean', errs.length === 0, errs.slice(0, 3).join(' | ') || 'no errors');

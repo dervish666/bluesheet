@@ -37,9 +37,14 @@
 // nothing here touches the DOM or the network at build time.
 
 import { Mesh, TAU } from '../kernel/mesh.js';
-import { rect, circle, slot, triangulate, reverse, ensureCCW, area as ringArea, boolean } from '../kernel/poly2d.js';
+import { rect, circle, slot, triangulate, reverse, ensureCCW, area as ringArea, boolean, shapeArea } from '../kernel/poly2d.js';
 import { loadFont, layoutText, contoursToShapes } from '../kernel/text.js';
 import { DEG, clamp, num } from '../kernel/scalar.js';
+// The lamp numbers live with the lighting generators and are borrowed, never
+// copied: E27 is the published shade-ring figures, LAMPS the bulb envelopes.
+import { E27 } from './lampfitter.js';
+import { LAMPS, PLA_TG } from './lampshade.js';
+import { FIT } from '../kernel/fit.js';
 
 const SHAPES = ['flat', 'arc-out', 'arc-in', 'shade'];
 
@@ -72,6 +77,77 @@ const SHADE_CORNER = 1.2;   // mm — a lamp shade never gets a knife-edge corne
 const MAX_RISE = 2.0;
 
 const smooth = (t) => t * t * (3 - 2 * t);
+
+// ---------------------------------------------------------------------------
+// Lamp fittings for the shade
+//
+// One table, keyed by the `fitting` enum, so a second kind of lamp is a row
+// here plus an option in the menu. Each row says what the web's bore and hub
+// default to and which bulb envelope the shade has to clear.
+//
+// E27: a web across the end of the square, hub round the bore, four arms to
+// the middle of each wall, open corners between them for the heat to leave by.
+// The web is built at the TOP of the shade as it hangs, then the whole object
+// is turned over so the web prints flat on the bed. A rigid half turn about X
+// keeps every picture where it was relative to its wall, so on the ceiling the
+// shade is exactly the unfitted one with a lid on, pictures upright and
+// unmirrored. A table lamp (fitMount 'table') stands web-down on an upright
+// holder, which is already the print orientation: the web goes under the
+// walls and nothing turns over. Lampfitter's round spider was the other option, but its rim is a
+// circle and this opening is a square; a separate part would have to be glued
+// into the corners anyway, so the web is grown out of the walls instead.
+// ---------------------------------------------------------------------------
+
+// Bambu Lab LED Lamp Kit 001 (MH001), a flat round USB puck. Bambu's three
+// sources disagree on the diameter, so the pocket is designed to the largest.
+// Store page for the LED Lamp Kit 001, its downloadable CAD, and the reference
+// base in that CAD; read 2026-10-04 and NOT measured on Sam's puck.
+const BAMBU_LED = Object.freeze({
+  puckStore: 59,        // mm, store page text
+  puckDrawing: 60,      // mm, dimensioned drawing
+  puckCad: 59.6,        // mm, CAD model at its widest (59.2 at the 0.2 mm chamfers)
+  height: 8.0,          // mm, all three agree
+  cableSlot: 2.5,       // mm, narrowest point of the cable slot in Bambu's reference base
+  cableGrip: 0.13,      // mm, the interference Bambu's design guide puts on that slot
+});
+// Pocket and depth take FIT.push (0.20 per side, "drops in with a push and does
+// not rattle"): the puck has to come back out for the cable, and it matches the
+// 0.2 mm base-to-ring gap in Bambu's own design guide, so 59.6 + 2 x 0.2 lands
+// on the 60.0 pocket of Bambu's reference base. The slot takes FIT.loose ("a
+// cable in its clip") either side of the 2.63 mm cable that Bambu's 2.5 mm slot
+// plus 0.13 mm interference implies.
+const BAMBU_POCKET = Math.round((BAMBU_LED.puckCad + 2 * FIT.push) * 10) / 10;
+const BAMBU_SLOT = Math.round((BAMBU_LED.cableSlot + BAMBU_LED.cableGrip + 2 * FIT.loose) * 10) / 10;
+const BAMBU_VENT = 5;       // mm, the two cooling holes under the puck
+const POCKET_WALL = 0.5;    // mm the pocket keeps inside the shade's inner face
+
+const FITTINGS = {
+  e27: {
+    label: 'E27 lampholder',
+    bore: E27.thread + 1,          // published thread + 1 mm slip, as lampshade and lampfitter
+    hub: 9,                        // 20.5 + 9 = 29.5 mm, past the 27 mm reach of a 54 mm ring
+    lamp: LAMPS.a60,
+    lampName: 'A60',
+    flip: true,                    // hangs web-up, prints web-down
+  },
+  'bambu-led': {
+    label: 'Bambu LED puck',
+    bore: BAMBU_POCKET,            // here the bore is the puck's pocket
+    slot: BAMBU_SLOT,
+    flip: false,                   // stands on its base, prints on its base
+  },
+};
+const FITTING_KINDS = ['none', ...Object.keys(FITTINGS)];
+const WEB_RIM = 2.0;      // mm of web left along each wall inside the vents
+const MIN_VENT = 4.0;     // mm² — a vent smaller than this is a blob of plastic, not a hole
+const HEAT_CLEAR = 15;    // mm of air from the glass to the wall; lampshade's PLA figure
+// How far the bulb starts from the web: the shade sits on the shade ring, and
+// the holder's mouth, where the bulb's cap shoulder is, stands this far past
+// it into the shade. AN ESTIMATE for a threaded-skirt E27 holder with the ring
+// run up the skirt. Neither lampfitter nor lampshade has the figure, no holder
+// here has been measured, and lampshade itself measures from its flange (0).
+const HOLDER_REACH = 15;  // mm, estimated
+const MOUNTS = ['pendant', 'table'];
 
 // ---------------------------------------------------------------------------
 // The caption
@@ -620,13 +696,24 @@ function solveFresh(p, ctx, sf) {
   const cellX = W / nu, cellY = H / nv;
 
   // ---- mirroring -----
-  // A relief on the far side of the material reads mirror-reversed when you look
-  // through it. The two shapes that put the picture inside are the two that need
-  // flipping, and "auto" is the only default that is right more often than not.
+  // Which way round a lithophane reads depends on the side it is LOOKED AT
+  // from, not on which face carries the relief: transmitted light sees only
+  // thickness. The shade is looked at from outside and reads unmirrored on
+  // either face (see SIDES); it was flipped here until 2026-10-04 on the theory
+  // that a relief on the far face reads back to front, and the test with a
+  // half-white picture showed every wall back to front from outside. arc-in
+  // keeps its flip untouched by that change; it was argued the same way and has
+  // not been re-derived.
   const mirrorMode = ['auto', 'on', 'off'].includes(p.mirror) ? p.mirror : 'auto';
-  const mirror = mirrorMode === 'on' || (mirrorMode === 'auto' && (shape === 'arc-in' || shape === 'shade'));
+  const mirror = mirrorMode === 'on' || (mirrorMode === 'auto' && shape === 'arc-in');
+  const reliefFace = shape === 'shade' ? (p.reliefFace === 'inside' ? 'inside' : 'outside') : null;
 
   const filter = FILTERS[p.filter] ? p.filter : 'lanczos';
+
+  // ---- lamp fitting (shade only) -----
+  // Decided before the grids, because a fitted shade prints upside down and
+  // the step guard has to know which way is up on the bed.
+  const fitting = shape === 'shade' ? fittingFor(p, { side, frameT, sf }) : null;
 
   // ---- the thickness grids (one per face) -----
   const opts = {
@@ -635,6 +722,7 @@ function solveFresh(p, ctx, sf) {
     invert: !!p.invert, contrast: num(p.contrast, 1), gamma: num(p.gamma, 1),
     stretch: p.levels !== 'as-is',
     guard: p.overhangGuard !== false,
+    upsideDown: !!(fitting && fitting.flip),
   };
   const images = [p.image];
   if (shape === 'shade') images.push(p.image2 || p.image, p.image3 || p.image, p.image4 || p.image);
@@ -679,7 +767,7 @@ function solveFresh(p, ctx, sf) {
   }
   if (footD < 0.3 || footH < 0.3) foot = false;
   const footTaper = foot ? Math.min(footD, footH * 2) : 0;
-  const z0 = foot ? footH + footTaper : 0;
+  const z0 = foot ? footH + footTaper : (fitting ? fitting.lift : 0);
 
   // ---- caption -----
   // After the foot, because the band is placed in absolute Z and the foot is
@@ -728,7 +816,107 @@ function solveFresh(p, ctx, sf) {
     foot, footH, footD, footTaper, z0,
     hangerKind, hangerDia, hanger, hangerBlocked,
     guardOn: opts.guard,
+    fitting, reliefFace,
   };
+}
+
+/**
+ * The web for a fitted shade, in the shade's own frame (centred, as it hangs).
+ * Returns null for no fitting. Everything the mesh needs is here as 2D rings
+ * cut with poly2d, so buildShade only has to extrude them between two planes.
+ */
+function fittingFor(p, { side, frameT, sf }) {
+  const kind = FITTING_KINDS.includes(p.fitting) ? p.fitting : 'none';
+  if (kind === 'none') return null;
+  const F = FITTINGS[kind];
+  const inner = side / 2 - frameT;              // half-width of the opening at the web
+  const webT = clamp(num(p.fitWeb, 3), 1.2, 12);
+  if (kind === 'bambu-led') return baseFor(p, { side, inner, webT, sf, F });
+  const hub = clamp(num(p.fitHub, F.hub), 2, 40);
+  const armW = clamp(num(p.fitArm, 10), 2, 60);
+  const boreAsked = clamp(num(p.fitBore, F.bore), 4, 160);
+
+  // The bore may not reach the walls. Asked for more than the opening allows,
+  // it is cut down so the solid stays one piece, and validate() says the holder
+  // will no longer go through.
+  let rBmax = inner - WEB_RIM - 1;
+  if (rBmax < 1) rBmax = Math.max(0.4, inner / 2);
+  const rB = Math.min(boreAsked / 2, rBmax);
+  const boreCut = rB < boreAsked / 2 - 1e-9;
+  const rHub = rB + hub;
+
+  // Even, so the ring has a vertex on each end of the X axis and the bore
+  // measures its diameter exactly along it.
+  const ringSegs = (r) => 2 * clamp(Math.round(Math.max(24, r * 1.5) * sf), 12, 128);
+  const boreRing = circle(rB, { segs: ringSegs(rB) });
+
+  // Vents: the opening less a rim along the walls, less the hub, less a cross
+  // of four arms running to the middle of each wall. On a small shade the hub
+  // swallows everything but the corners and the arms cut nothing, which is the
+  // right answer: the corners are where the room is.
+  const clipH = inner - WEB_RIM;
+  let vents = [];
+  if (clipH > 0.5 && clipH * Math.SQRT2 > rHub + 0.5) {
+    let vg = boolean(rect(2 * clipH, 2 * clipH), circle(rHub, { segs: ringSegs(rHub) }), 'difference');
+    const L = 2 * clipH + 4;
+    vg = boolean(vg, rect(L, armW), 'difference');
+    vg = boolean(vg, rect(armW, L), 'difference');
+    // Outer rings only: with a cross through the middle no vent can enclose an
+    // island, and keeping holes here would mean a loose piece if one ever did.
+    vents = vg.filter(s => shapeArea([s[0]]) >= MIN_VENT).map(s => dedupe(ensureCCW(s[0])));
+  }
+  let ventArea = 0;
+  for (const v of vents) ventArea += ringArea(v);
+
+  // Pendant: hangs web-up, so it is built web-up and turned over to print.
+  // Table: stands on the holder web-down, which is already the way it prints,
+  // so the web goes under the shade (lifting it by webT) and nothing turns.
+  const mount = MOUNTS.includes(p.fitMount) ? p.fitMount : 'pendant';
+  const table = mount === 'table';
+  return { kind, F, mount, table, flip: !table, lift: table ? webT : 0, lamp: F.lamp, inner, webT, hub, armW,
+           boreAsked, rB, boreCut, rHub, boreRing, vents, ventArea };
+}
+
+/**
+ * The Bambu LED base: a floor, a pocket the puck drops into, and a cable slot
+ * open through the floor and out of the wall, so the cable goes in sideways and
+ * the plug and the switch never have to pass through a hole.
+ */
+function baseFor(p, { side, inner, webT, sf, F }) {
+  const a = side / 2;
+  const floorT = webT;
+  const pocketAsked = clamp(num(p.fitBore, F.bore), 4, 160);
+  // The pocket stays inside the shade's inner face, so the wall above never
+  // overhangs it. Asked for more, it is cut down and validate() says so.
+  const rP = Math.max(0.5, Math.min(pocketAsked / 2, inner - POCKET_WALL));
+  const pocketCut = rP < pocketAsked / 2 - 1e-9;
+  const pocketD = BAMBU_LED.height + FIT.push;
+  const slotW = Math.min(clamp(num(p.fitSlot, F.slot), 0.8, 20), 2 * a - 2);
+  const ringSegs = (r) => 2 * clamp(Math.round(Math.max(24, r * 1.5) * sf), 12, 128);
+  const pocketRing = circle(rP, { segs: ringSegs(rP) });
+  // From just inside the puck's rim, through the pocket wall and out past the
+  // outside of the shade. Under the rim, the cable drops in from below.
+  const slotStart = rP - Math.min(2, rP / 2);
+  const slotLen = a + 2 - slotStart;
+  const slotRect = rect(slotW, slotLen, { cx: 0, cy: -(slotStart + slotLen / 2) });
+  // Two cooling holes under the puck, across from the slot so they never meet it.
+  const vx = 0.45 * rP, vr = BAMBU_VENT / 2;
+  const vents = (vx - vr > slotW / 2 + 1 && vx + vr < rP - 1)
+    ? [circle(vr, { segs: ringSegs(vr), cx: vx, cy: 0 }), circle(vr, { segs: ringSegs(vr), cx: -vx, cy: 0 })]
+    : [];
+  return { kind: 'bambu-led', F, flip: false, lift: floorT + pocketD, inner, webT, floorT, pocketD,
+           pocketAsked, rP, pocketCut, slotW, slotRect, pocketRing, vents };
+}
+
+/** Drop a point that repeats its predecessor; a zero-length edge is a zero-area wall. */
+function dedupe(ring) {
+  const out = [];
+  for (const q of ring) {
+    const prev = out[out.length - 1];
+    if (!prev || Math.hypot(q[0] - prev[0], q[1] - prev[1]) > 1e-7) out.push(q);
+  }
+  while (out.length > 3 && Math.hypot(out[0][0] - out[out.length - 1][0], out[0][1] - out[out.length - 1][1]) <= 1e-7) out.pop();
+  return out;
 }
 
 /**
@@ -806,6 +994,30 @@ function gridFor(img, o) {
   // the step from the last picture row into the frame is a real overhang too.
   const dz = H / nv;
   let worstRise = 0;
+  let guarded = 0;
+  if (o.upsideDown) {
+    // A fitted shade prints web-down, so the bed is at the TOP of the picture
+    // and the nozzle climbs from row nv towards row 0. Same rule, mirrored:
+    // "above" on the bed is the row with the smaller index.
+    for (let j = 0; j < nv; j++) {
+      for (let i = 0; i <= nu; i++) {
+        const r = (t[j * dw + i] - t[(j + 1) * dw + i]) / dz;
+        if (r > worstRise) worstRise = r;
+      }
+    }
+    if (o.guard) {
+      const maxStep = MAX_RISE * dz;
+      for (let j = 1; j <= nv; j++) {
+        const row = j * dw, above = (j - 1) * dw;
+        for (let i = 0; i <= nu; i++) {
+          const floorT = t[above + i] - maxStep;
+          if (t[row + i] < floorT) { t[row + i] = floorT; guarded++; }
+        }
+      }
+    }
+    return { t, nu, nv, uniform, lo, hi, worstRise, guarded,
+             srcW: img ? img.w : 0, srcH: img ? img.h : 0 };
+  }
   for (let j = 0; j < nv; j++) {
     for (let i = 0; i <= nu; i++) {
       const r = (t[(j + 1) * dw + i] - t[j * dw + i]) / dz;
@@ -815,7 +1027,6 @@ function gridFor(img, o) {
   // Relax downward: material is ADDED to the row below a step, never taken from
   // the row above it, so the correction darkens a highlight slightly instead of
   // eating the detail that made the step interesting.
-  let guarded = 0;
   if (o.guard) {
     const maxStep = MAX_RISE * dz;
     for (let j = nv - 1; j >= 0; j--) {
@@ -1164,7 +1375,14 @@ function buildArc(g) {
 }
 
 // ---------------------------------------------------------------------------
-// shade — a four-sided lamp, pictures on the inside
+// shade — a four-sided lamp, the relief on the outside or the inside
+//
+// Handedness, derived rather than assumed. The viewer stands outside a wall
+// looking in, light behind the wall. Their right hand points along
+// up x outward-normal, which for every entry in SIDES is exactly `d`, the
+// direction the samples run. So picture column 0 (the left of the photograph)
+// lands at the viewer's left with no mirroring, whichever face the relief is
+// cut into: transmitted light sees thickness, not which surface carries it.
 // ---------------------------------------------------------------------------
 
 const SIDES = [
@@ -1175,6 +1393,10 @@ const SIDES = [
 ];
 
 function buildShade(g) {
+  return g.reliefFace === 'inside' ? buildShadeInside(g) : buildShadeOutside(g);
+}
+
+function buildShadeInside(g) {
   const m = new Mesh();
   const { nu, side, frameT, baseT } = g;
   const a = side / 2;
@@ -1205,12 +1427,13 @@ function buildShade(g) {
 
   const zBot = levels[0].z, zTop = levels[levels.length - 1].z;
   const outer = rect(side, side);
+  const { webUp, webDown, base, zCap, zFloor } = fittingEnds(g, zBot, zTop);
 
   // The outside of a lamp shade is four flat panels. Tessellating it at picture
   // resolution would double the mesh to describe a plane, so it gets four quads
   // and the rims are triangulated against the inner ring instead.
-  const oBot = addRing2D(m, outer, zBot);
-  const oTop = addRing2D(m, outer, zTop);
+  const oBot = addRing2D(m, outer, zFloor);
+  const oTop = addRing2D(m, outer, zCap);
   loftRing(m, oBot, oTop);
 
   let prev = null, firstRing = null, lastRing = null;
@@ -1227,9 +1450,161 @@ function buildShade(g) {
     prev = idx;
     lastRing = ring;
   }
-  planarFace(m, [outer, reverse(firstRing)], (x, y) => [x, y, zBot], true);
-  planarFace(m, [outer, reverse(lastRing)], (x, y) => [x, y, zTop], false);
+  if (base) addBase(m, g, zBot);
+  else if (webDown) addWeb(m, g, zBot, zFloor);
+  else planarFace(m, [outer, reverse(firstRing)], (x, y) => [x, y, zBot], true);
+  if (webUp) addWeb(m, g, zTop, zCap);
+  else planarFace(m, [outer, reverse(lastRing)], (x, y) => [x, y, zTop], false);
   return m;
+}
+
+/** Where the walls start and stop once the fitting has taken its end. */
+function fittingEnds(g, zBot, zTop) {
+  const f = g.fitting;
+  const web = !!(f && f.kind === 'e27');
+  const webUp = web && !f.table, webDown = web && f.table;
+  return {
+    webUp, webDown, base: !!(f && f.kind === 'bambu-led'),
+    zCap: webUp ? zTop + f.webT : zTop,
+    zFloor: webDown ? zBot - f.webT : zBot,
+  };
+}
+
+/**
+ * Relief on the outer face. The inner face is a flat square frameT in from the
+ * outside, and the picture is cut back from the outer square by (frameT - th),
+ * so a black pixel is flush with the frame and a white one is recessed.
+ *
+ * The corners need no `keep` here. A recess can only reach over a corner post
+ * if a picture sample sits within frameT of the corner, and solve() puts the
+ * first picture sample frameW > frameT + 0.6 mm along the wall. Every sample
+ * nearer the corner is frame, flush with the outer square, so the outer ring
+ * cannot fold back across the neighbouring wall.
+ */
+function buildShadeOutside(g) {
+  const m = new Mesh();
+  const { nu, side, frameT, baseT } = g;
+  const a = side / 2, B = a - frameT;
+  const dw = nu + 1;
+  const { pos, col } = panelSamples(g);
+  const M = pos.length;
+  const levels = panelLevels(g);
+
+  const outerSides = (row) => {
+    const out = [];
+    for (let s = 0; s < 4; s++) {
+      const S = SIDES[s], t = g.grids[s].t;
+      const ox = S.o[0] * a, oy = S.o[1] * a;
+      const pts = [];
+      for (let k = 0; k < M - 1; k++) {
+        const th = (row < 0 || col[k] < 0) ? baseT : t[row * dw + col[k]];
+        const r = frameT - th;               // recess from the outer square, inward
+        pts.push([ox + S.d[0] * pos[k] + S.n[0] * r, oy + S.d[1] * pos[k] + S.n[1] * r]);
+      }
+      out.push(pts);
+    }
+    return out;
+  };
+  const flat = (sides) => sides.flat();
+
+  const zBot = levels[0].z, zTop = levels[levels.length - 1].z;
+  const { webUp, webDown, base, zCap, zFloor } = fittingEnds(g, zBot, zTop);
+  const rim = outerSides(-1);
+
+  let prev = webDown ? addRing2D(m, flat(rim), zFloor) : null;
+  for (const lv of levels) {
+    const idx = addRing2D(m, flat(outerSides(lv.row)), lv.z);
+    if (prev) loftRing(m, prev, idx);
+    prev = idx;
+  }
+  if (webUp) loftRing(m, prev, addRing2D(m, flat(rim), zCap));
+
+  // The inner face: four flat quads, facing the cavity.
+  const inner = reverse(rect(2 * B, 2 * B));
+  loftRing(m, addRing2D(m, inner, zBot), addRing2D(m, inner, zTop));
+
+  if (base) addBase(m, g, zBot);
+  else if (webDown) addWeb(m, g, zBot, zFloor);
+  else squareStrip(m, rim, B, zBot, true);
+  if (webUp) addWeb(m, g, zTop, zCap);
+  else squareStrip(m, rim, B, zTop, false);
+  return m;
+}
+
+/**
+ * The flat rim between a square ring that carries extra points along its edges
+ * (the picture samples, collinear in a frame row) and a plain inner square of
+ * half-width B. The triangulator drops collinear points, which would leave a
+ * T-junction against the wall, so this fans each side by hand: every outer
+ * point is used, every triangle has area.
+ * `sides[s][0]` is corner s of the outer square, in SIDES order.
+ */
+function squareStrip(m, sides, B, z, flip) {
+  const Q = [[-B, -B], [B, -B], [B, B], [-B, B]];
+  const tri = (p, q, r) => {
+    const i = m.addVertex(p[0], p[1], z), j = m.addVertex(q[0], q[1], z), k = m.addVertex(r[0], r[1], z);
+    if (flip) m.addTri(i, k, j); else m.addTri(i, j, k);
+  };
+  for (let s = 0; s < 4; s++) {
+    const P = [...sides[s], sides[(s + 1) % 4][0]];
+    const q0 = Q[s], q1 = Q[(s + 1) % 4];
+    const n = P.length - 1, mid = Math.floor(n / 2);
+    for (let i = 0; i < n; i++) tri(P[i], P[i + 1], i < mid ? q0 : q1);
+    tri(P[mid], q1, q0);
+  }
+}
+
+/** Walls for every ring of every shape between z0 and z1. Rings from poly2d
+ *  come outer counter-clockwise, holes clockwise, which is the orientation
+ *  loftRing needs to face out of the material either way. */
+function wallsOf(m, shapes, z0, z1) {
+  for (const sh of shapes) for (const r of sh) loftRing(m, addRing2D(m, r, z0), addRing2D(m, r, z1));
+}
+function facesOf(m, shapes, z, flip) {
+  for (const sh of shapes) planarFace(m, sh, (x, y) => [x, y, z], flip);
+}
+
+/**
+ * The E27 web: the face inside the walls at zIn, facing the cavity, the face
+ * across the whole outside at zOut, bore and vents through both. zOut above
+ * zIn is a pendant's web, zOut below it a table lamp's. Its edges meet the
+ * walls at points the walls do not have (the frame samples), and build()
+ * closes those with healTJunctions.
+ */
+function addWeb(m, g, zIn, zOut) {
+  const f = g.fitting, a = g.side / 2, B = a - g.frameT;
+  const down = zOut < zIn;
+  const holes = [f.boreRing, ...f.vents].map(r => reverse(r));
+  planarFace(m, [rect(2 * B, 2 * B), ...holes], (x, y) => [x, y, zIn], !down);
+  planarFace(m, [rect(2 * a, 2 * a), ...holes], (x, y) => [x, y, zOut], down);
+  const lo = Math.min(zIn, zOut), hi = Math.max(zIn, zOut);
+  for (const h of holes) loftRing(m, addRing2D(m, h, lo), addRing2D(m, h, hi));
+}
+
+/**
+ * The Bambu LED base, under the shade, which starts at zBot. Two layers:
+ *   floor   0 .. floorT      the square, less the cable slot and the vents
+ *   pocket  floorT .. zBot   the square, less the pocket and the cable slot
+ * then the two faces where the shade sits on it: the ledge round the pocket
+ * inside the walls (up), and the bridge where the wall crosses the slot (down).
+ */
+function addBase(m, g, zBot) {
+  const f = g.fitting, a = g.side / 2, B = a - g.frameT;
+  const S = rect(2 * a, 2 * a), Q = rect(2 * B, 2 * B);
+  const P = f.pocketRing, V = f.vents, SL = f.slotRect;
+  const hole = boolean(P, SL, 'union');
+  const floor = V.length ? boolean(boolean(S, SL, 'difference'), V, 'difference') : boolean(S, SL, 'difference');
+  const ring = boolean(S, hole, 'difference');
+  let pocketFloor = boolean(P, SL, 'difference');
+  if (V.length) pocketFloor = boolean(pocketFloor, V, 'difference');
+  const ledge = boolean(Q, hole, 'difference');
+  const bridge = boolean(boolean(S, Q, 'difference'), SL, 'intersection');
+  facesOf(m, floor, 0, true);
+  wallsOf(m, floor, 0, f.floorT);
+  facesOf(m, pocketFloor, f.floorT, false);
+  wallsOf(m, ring, f.floorT, zBot);
+  facesOf(m, ledge, zBot, false);
+  facesOf(m, bridge, zBot, true);
 }
 
 // ---------------------------------------------------------------------------
@@ -1239,8 +1614,18 @@ function buildShade(g) {
 function build(p, ctx = {}) {
   const g = solve(p, ctx);
   let m;
-  if (g.shape === 'shade') m = buildShade(g);
-  else if (g.curved) m = buildArc(g);
+  if (g.shape === 'shade') {
+    m = buildShade(g);
+    if (g.fitting) {
+      // The fitting's faces meet the walls along edges the walls have cut
+      // into more points than the fitting has; split them to match.
+      m = m.healTJunctions(1e-6, { clean: true });
+      // Web to the bed: a half turn about X, written out so it is exact. It is
+      // a rotation, not a mirror, so the winding and the pictures' handedness
+      // are untouched and the shade on the ceiling is the shade that was built.
+      if (g.fitting.flip) m = m.mapVerts((x, y, z) => [x, -y, -z]);
+    }
+  } else if (g.curved) m = buildArc(g);
   else m = buildFlat(g);
 
   m = m.weld(1e-7);
@@ -1273,10 +1658,38 @@ function build(p, ctx = {}) {
       from: [off[0], off[1], g.z0 + g.panelH / 2 + off[2]],
       to: [g.radius * Math.cos(-g.theta / 2) + off[0], g.radius * Math.sin(-g.theta / 2) + off[1], g.z0 + g.panelH / 2 + off[2]],
       offset: 4 });
-  } else {
-    const a = g.side / 2, zt = g.panelH;
+  } else if (!g.fitting || g.fitting.kind !== 'e27') {
+    const a = g.side / 2, zt = g.z0 + g.panelH;
     dims.push({ param: 'shadeSide', label: '',
       from: [-a + off[0], -a + off[1], zt + off[2]], to: [a + off[0], -a + off[1], zt + off[2]], offset: 8 });
+    const f = g.fitting;
+    if (f) {
+      // The base, standing the right way up: pocket across its top, the slot
+      // where it leaves the wall, the floor at the outside.
+      const x0 = off[0], y0 = off[1], zp = f.lift + off[2];
+      const pocket = { param: 'fitBore', label: 'Ø',
+        from: [-f.rP + x0, y0, zp], to: [f.rP + x0, y0, zp], offset: [0, 0, 6] };
+      if (f.pocketCut) { pocket.value = Math.round(2 * f.rP * 100) / 100; pocket.unit = 'mm'; }
+      dims.push(pocket);
+      dims.push({ param: 'fitSlot', from: [-f.slotW / 2 + x0, -a + y0, off[2]], to: [f.slotW / 2 + x0, -a + y0, off[2]], offset: [0, -6, 0] });
+      dims.push({ param: 'fitWeb', from: [a + x0, y0, off[2]], to: [a + x0, y0, f.floorT + off[2]], offset: [5, 0, 0] });
+    }
+  } else {
+    // E27, either mount: as printed the web lies on the bed and the mouth is
+    // the top rim (a pendant because it was turned over, a table lamp because
+    // that is how it stands).
+    const a = g.side / 2, f = g.fitting, zt = g.panelH + f.webT;
+    const x0 = off[0], y0 = off[1];
+    dims.push({ param: 'shadeSide', label: '',
+      from: [-a + x0, -a + y0, zt], to: [a + x0, -a + y0, zt], offset: 8 });
+    const bore = { param: 'fitBore', label: 'Ø',
+      from: [-f.rB + x0, y0, f.webT], to: [f.rB + x0, y0, f.webT], offset: [0, 0, 6] };
+    if (f.boreCut) { bore.value = Math.round(2 * f.rB * 100) / 100; bore.unit = 'mm'; }
+    dims.push(bore);
+    dims.push({ param: 'fitWeb', from: [f.rB + x0, y0, 0], to: [f.rB + x0, y0, f.webT], offset: [-4, 0, 0] });
+    const c = Math.SQRT1_2;
+    dims.push({ param: 'fitHub', from: [f.rB * c + x0, f.rB * c + y0, f.webT],
+      to: [f.rHub * c + x0, f.rHub * c + y0, f.webT], offset: [0, 0, 4] });
   }
 
   return {
@@ -1306,7 +1719,30 @@ function build(p, ctx = {}) {
         reliefMM: g.caption.out, depthMM: g.caption.depth, remainingMM: g.caption.glow,
         missing: g.caption.missing,
       } : null,
+      reliefFace: g.reliefFace,
+      fitting: fittingMeta(g),
     },
+  };
+}
+
+function fittingMeta(g) {
+  const f = g.fitting;
+  if (!f) return null;
+  if (f.kind === 'bambu-led') {
+    return {
+      kind: f.kind, upsideDown: false,
+      pocketMM: 2 * f.rP, pocketAskedMM: f.pocketAsked, pocketCut: f.pocketCut, pocketDepthMM: f.pocketD,
+      floorMM: f.floorT, slotMM: f.slotW, vents: f.vents.length,
+      openingMM: 2 * f.inner, baseMM: f.lift, heightMM: g.z0 + g.panelH,
+    };
+  }
+  return {
+    kind: f.kind, mount: f.mount, upsideDown: f.flip,
+    boreMM: 2 * f.rB, boreAskedMM: f.boreAsked, boreCut: f.boreCut,
+    hubOuterMM: 2 * f.rHub, webMM: f.webT,
+    openingMM: 2 * f.inner, vents: f.vents.length, ventAreaMM2: f.ventArea,
+    heightMM: g.panelH + f.webT, depthFromWebMM: g.panelH,
+    bulbReachMM: HOLDER_REACH + f.lamp.len,
   };
 }
 
@@ -1350,10 +1786,10 @@ const params = [
     help: 'How the photograph is reduced to the print grid. All three are real filters; none of them point-sample.' },
   { key: 'mirror', label: 'Mirror', type: 'enum', def: 'auto', group: 'Picture',
     options: [
-      { v: 'auto', label: 'Automatic', help: 'Flipped for the shapes whose relief faces away from you.' },
+      { v: 'auto', label: 'Automatic', help: 'Flipped for the inward curve. The shade reads the right way round from outside without a flip, whichever face carries its relief.' },
       { v: 'off', label: 'Never' }, { v: 'on', label: 'Always' },
     ],
-    help: 'A relief seen through the material reads back to front. Lamps and shades need the flip; a plate you look straight at does not.' },
+    help: 'For a picture that reads back to front from where you will stand. Which way round it reads depends on the side you look from, not on which face the relief is on.' },
 
   { key: 'minThickness', label: 'Thinnest', type: 'number', unit: 'mm', group: 'Tone',
     min: 0.4, max: 1.6, step: 0.05, def: 0.8,
@@ -1402,6 +1838,56 @@ const params = [
     min: 40, max: 130, step: 1, def: 70,
     showIf: (p) => p.shape === 'shade',
     help: 'Outside width of the square. It has to clear whatever light goes inside it.' },
+  { key: 'reliefFace', label: 'Relief on', type: 'enum', def: 'outside', group: 'Shape',
+    showIf: (p) => p.shape === 'shade',
+    options: [
+      { v: 'outside', label: 'The outside', help: 'The textured face looks out and the flat face is towards the light. The picture is cut back from the frame, so a black area is flush and a white one is a hollow.' },
+      { v: 'inside', label: 'The inside', help: 'A smooth square outside, the relief facing the lamp.' },
+    ],
+    help: 'Which face of the shade carries the relief. The picture reads the same way round from outside either way; this only changes what you touch.' },
+
+  { key: 'fitting', label: 'Lamp fitting', type: 'enum', def: 'none', group: 'Lamp fitting',
+    showIf: (p) => p.shape === 'shade',
+    options: [
+      { v: 'none', label: 'None (open tube)', help: 'Both ends open. Stands over an LED tea light or a small lamp base.' },
+      { v: 'e27', label: 'E27 lampholder', help: 'A web across one end with a bore for a European E27 holder, so the shade hangs as a pendant from the holder\'s shade ring. It prints web-down on the bed and the pictures are built upside down so they hang the right way up.' },
+      { v: 'bambu-led', label: 'Bambu LED puck', help: 'A base under the shade with a pocket for Bambu Lab\'s LED Lamp Kit 001 puck and a cable slot open to the side. Sized from Bambu\'s published figures, not a measured puck.' },
+    ],
+    // Picking a fitting puts back that fitting's own numbers, so switching
+    // kinds never leaves one lamp's bore on another lamp's part.
+    carries: (v) => {
+      const F = FITTINGS[v];
+      if (!F) return {};
+      return v === 'bambu-led' ? { fitBore: F.bore, fitSlot: F.slot } : { fitBore: F.bore, fitHub: F.hub };
+    },
+    help: 'What the shade hangs from or stands on. The E27 figures (Ø 40 mm shade-ring thread, 54 mm ring) are published, not measured on your holder; the Bambu figures are from Bambu\'s store page and CAD, not measured on your puck.' },
+  { key: 'fitMount', label: 'Hangs or stands', type: 'enum', def: 'pendant', group: 'Lamp fitting',
+    showIf: (p) => p.shape === 'shade' && p.fitting === 'e27',
+    options: [
+      { v: 'pendant', label: 'Pendant (hangs)', help: 'Hangs from a ceiling holder with the web at the top. Printed web-down, so the pictures are built upside down and hang the right way up.' },
+      { v: 'table', label: 'Table lamp (stands)', help: 'Sits on an upright holder\'s shade ring with the web at the bottom and the bulb standing up inside. Printed the way it stands.' },
+    ],
+    help: `Which way up the holder is. The bulb is checked against the shade's depth from the web: ${HOLDER_REACH} mm to the holder's mouth (an estimate, not measured) plus the bulb.` },
+  { key: 'fitBore', label: 'Bore / pocket', type: 'number', unit: 'mm', group: 'Lamp fitting',
+    min: 20, max: 70, step: 0.1, def: FITTINGS.e27.bore,
+    showIf: (p) => p.shape === 'shade' && (p.fitting ?? 'none') !== 'none',
+    help: `E27: the hole the holder goes through. ${FITTINGS.e27.bore} mm is the published Ø ${E27.thread} mm European E27 shade-ring thread plus a millimetre of slip, not measured on your holder; print the bore gauge in E27 fitter parts on the same settings and type its answer here. Bambu LED: the puck's pocket. ${BAMBU_POCKET} mm is the ${BAMBU_LED.puckCad} mm puck in Bambu's downloadable CAD plus ${FIT.push} mm a side (the store page for the LED Lamp Kit 001 says ${BAMBU_LED.puckStore} mm and its drawing ${BAMBU_LED.puckDrawing}); not measured on your puck.` },
+  { key: 'fitHub', label: 'Hub width', type: 'number', unit: 'mm', group: 'Lamp fitting',
+    min: 3, max: 30, step: 0.5, def: FITTINGS.e27.hub,
+    showIf: (p) => p.shape === 'shade' && p.fitting === 'e27',
+    help: `The solid ring round the bore that the shade ring clamps. A thermoplastic E27 ring is published at ${E27.ringOuter} mm across (unmeasured), so ${FITTINGS.e27.hub} mm on a ${FITTINGS.e27.bore} mm bore leaves it ${(FITTINGS.e27.bore / 2 + FITTINGS.e27.hub - E27.ringOuter / 2).toFixed(1)} mm to spare. The vents start outside it.` },
+  { key: 'fitWeb', label: 'Web / floor thickness', type: 'number', unit: 'mm', group: 'Lamp fitting',
+    min: 1.6, max: 8, step: 0.2, def: 3,
+    showIf: (p) => p.shape === 'shade' && (p.fitting ?? 'none') !== 'none',
+    help: 'E27: the web the whole shade hangs off; under 2.4 mm it flexes every time the shade is knocked. Bambu LED: the floor under the puck. Either way it is added beyond the frame, so the pictures do not move.' },
+  { key: 'fitArm', label: 'Arm width', type: 'number', unit: 'mm', group: 'Lamp fitting',
+    min: 4, max: 30, step: 0.5, def: 10,
+    showIf: (p) => p.shape === 'shade' && p.fitting === 'e27',
+    help: 'Four arms run from the hub to the middle of each wall, and the open corners between them let the heat out. On a small shade the hub already reaches the walls and only the corners are open.' },
+  { key: 'fitSlot', label: 'Cable slot', type: 'number', unit: 'mm', group: 'Lamp fitting',
+    min: 1.5, max: 8, step: 0.1, def: BAMBU_SLOT,
+    showIf: (p) => p.shape === 'shade' && p.fitting === 'bambu-led',
+    help: `Width of the slot the puck's cable leaves by, open through the floor and out of the wall like Bambu's own base. Nobody has published the cable's diameter: Bambu's base grips it in a ${BAMBU_LED.cableSlot} mm slot with ${BAMBU_LED.cableGrip} mm of interference, so it is about ${(BAMBU_LED.cableSlot + BAMBU_LED.cableGrip).toFixed(2)} mm, and ${BAMBU_SLOT} mm adds ${FIT.loose} mm a side. Measure yours.` },
   { key: 'pixelPitch', label: 'Pixel pitch', type: 'number', unit: 'mm', group: 'Shape',
     min: 0.15, max: 1.2, step: 0.05, def: 0.35,
     help: 'One relief sample per this many millimetres. Below about 0.3 mm the nozzle cannot resolve it and you are only paying in triangles.' },
@@ -1598,7 +2084,8 @@ function validate(p) {
     if (g.theta >= Math.PI) { sx = 2 * rOut; sy = rOut + Math.max(rIn * Math.cos(g.theta / 2), -rOut); }
     else { sx = 2 * rOut * Math.sin(g.theta / 2); sy = rOut - rIn * Math.cos(g.theta / 2); }
   } else { sx = g.panelW; sy = g.frameT + (g.caption ? g.caption.out : 0) + 2 * foot; }
-  const sz = g.z0 + g.panelH;
+  const sz = g.z0 + g.panelH + (g.fitting && g.fitting.flip ? g.fitting.webT : 0);
+  if (g.fitting) issues.push(...fittingIssues(g));
   if (sx > bed.x + 1e-6 || sy > bed.y + 1e-6 || sz > bed.z + 1e-6) {
     issues.push({ param: sz > bed.z ? 'imageHeight' : 'imageWidth', severity: 'error',
       message: `This comes out ${sx.toFixed(0)} x ${sy.toFixed(0)} x ${sz.toFixed(0)} mm and the A1 mini bed is ${bed.x} x ${bed.y} x ${bed.z} mm. It will not print — reduce the picture${g.framed ? ' or the frame' : ''}.` });
@@ -1612,6 +2099,87 @@ function validate(p) {
       message: `A ${g.footD.toFixed(0)} mm foot under a ${sz.toFixed(0)} mm panel is a narrow base. About ${(sz / 15).toFixed(0)} mm each side is where it stops being easy to knock over.` });
   }
   return issues;
+}
+
+/**
+ * What can go wrong between a fitted shade and the lamp it hangs from. The
+ * holder and ring numbers are lampfitter's published E27 figures; the bulb is
+ * lampshade's envelope, measured from the web as lampshade measures it from
+ * its flange.
+ */
+function fittingIssues(g) {
+  if (g.fitting.kind === 'bambu-led') return baseIssues(g);
+  const f = g.fitting, out = [];
+  const lamp = f.lamp, open = 2 * f.inner;
+  const ringR = E27.ringOuter / 2;
+  if (f.boreCut) {
+    const need = 2 * (f.boreAsked / 2 + WEB_RIM + 1 + g.frameT);
+    out.push({ param: 'fitBore', severity: 'error',
+      message: `A ${g.side.toFixed(0)} mm shade with ${g.frameT.toFixed(1)} mm walls is ${open.toFixed(0)} mm inside, so a ${f.boreAsked.toFixed(1)} mm bore would cut through the walls. It has been built at ${(2 * f.rB).toFixed(1)} mm and an E27 holder will not go through that. Make the shade at least ${Math.ceil(need)} mm.` });
+  } else if (!f.table && ringR > f.inner) {
+    out.push({ param: 'shadeSide', severity: 'warn',
+      message: `The shade ring screws up under the web from inside the shade, and a ${E27.ringOuter} mm ring (published, not measured) will not turn in a ${open.toFixed(0)} mm opening. Make the shade at least ${Math.ceil(E27.ringOuter + 2 * g.frameT + 2)} mm.` });
+  }
+  if (!f.boreCut && f.rHub < ringR + 1) {
+    out.push({ param: 'fitHub', severity: 'warn',
+      message: `The hub reaches ${f.rHub.toFixed(1)} mm from the axis and a ${E27.ringOuter} mm shade ring reaches ${ringR.toFixed(0)} mm, so the ring would clamp the vents instead of solid web. Give it at least ${Math.ceil(ringR + 1 - f.rB)} mm of hub.` });
+  }
+  if (!f.vents.length) {
+    // Hanging, the web is the lid and the heat pools under it. Standing, the
+    // top is open and the vents are only the air coming in underneath.
+    out.push(f.table
+      ? { param: 'fitHub', severity: 'info',
+          message: `No room for vents in the web, so the only air in is through the bore. Standing up, the heat leaves by the open top anyway; vents would only draw cooler air in underneath.` }
+      : { param: 'fitHub', severity: 'warn',
+          message: `No room for vents: the hub covers the whole ${open.toFixed(0)} mm opening, so the web is a solid lid with a hole in it and the heat from the lamp has nowhere to go but the bore. A wider shade, a narrower hub or narrower arms opens the corners.` });
+  }
+  if (f.webT < 2.4) {
+    out.push({ param: 'fitWeb', severity: 'warn',
+      message: `A ${f.webT.toFixed(1)} mm web carries the whole shade on its arms. Under 2.4 mm it bends the first time the shade is knocked.` });
+  }
+  // The bulb, across: the nearest wall to the glass is the frame band, frameT in.
+  const clear = f.inner - lamp.dia / 2;
+  if (clear < 1) {
+    out.push({ param: 'shadeSide', severity: 'warn',
+      message: `A standard ${f.F.lampName} bulb is ${lamp.dia} mm across and this shade is ${open.toFixed(0)} mm inside, so it ${clear < 0 ? 'does not go in' : 'touches the walls'}. Make the shade at least ${Math.ceil(lamp.dia + 2 * g.frameT + 2 * HEAT_CLEAR)} mm, or use a smaller LED bulb (a G45 golf ball is ${LAMPS.g45.dia} mm).` });
+  } else if (clear < HEAT_CLEAR) {
+    out.push({ param: 'shadeSide', severity: 'warn',
+      message: `Only ${clear.toFixed(0)} mm between the glass of a ${lamp.dia} mm ${f.F.lampName} bulb and the walls. PLA softens at about ${PLA_TG} °C and a working LED gets there at its base. Use an LED and nothing hotter, and give it ${HEAT_CLEAR} mm (a ${Math.ceil(lamp.dia + 2 * g.frameT + 2 * HEAT_CLEAR)} mm shade) if you can.` });
+  }
+  // Along the axis: the bulb starts at the holder's mouth, HOLDER_REACH (an
+  // estimate) past the web, and runs lamp.len from there; down for a pendant,
+  // up for a table lamp. The shade runs panelH past the web either way.
+  const reach = HOLDER_REACH + lamp.len;
+  if (reach > g.panelH + 1e-6) {
+    const way = f.table ? 'above' : 'below', end = f.table ? 'over the rim' : 'under the mouth';
+    out.push({ param: 'imageHeight', severity: 'warn',
+      message: `The ${f.F.lampName} bulb reaches about ${reach} mm ${way} the web (${lamp.len} mm of bulb from a holder mouth estimated at ${HOLDER_REACH} mm past the web, not measured) and this shade is ${g.panelH.toFixed(0)} mm deep ${way} it, so about ${(reach - g.panelH).toFixed(0)} mm of bulb shows ${end} and glares. A taller picture, or a shorter bulb, keeps it inside.` });
+  }
+  return out;
+}
+
+/** The Bambu LED base. Every puck figure is Bambu's, none is Sam's. */
+function baseIssues(g) {
+  const f = g.fitting, out = [];
+  const minSide = Math.ceil(2 * (f.pocketAsked / 2 + POCKET_WALL + g.frameT));
+  if (f.pocketCut) {
+    out.push({ param: 'shadeSide', severity: 'error',
+      message: `The puck needs a ${f.pocketAsked.toFixed(1)} mm pocket and a ${g.side.toFixed(0)} mm shade with ${g.frameT.toFixed(1)} mm walls is ${(2 * f.inner).toFixed(1)} mm inside, so the pocket has been cut to ${(2 * f.rP).toFixed(1)} mm and the puck will not go in. The smallest shade that takes it is ${minSide} mm (pocket, plus ${POCKET_WALL} mm, plus the walls).` });
+  }
+  if (f.pocketAsked < BAMBU_LED.puckCad) {
+    out.push({ param: 'fitBore', severity: 'warn',
+      message: `A ${f.pocketAsked.toFixed(1)} mm pocket is smaller than the ${BAMBU_LED.puckCad} mm puck in Bambu's CAD. It will not go in unless your puck is smaller than Bambu says.` });
+  }
+  const cable = BAMBU_LED.cableSlot + BAMBU_LED.cableGrip;
+  if (f.slotW < cable) {
+    out.push({ param: 'fitSlot', severity: 'warn',
+      message: `A ${f.slotW.toFixed(1)} mm slot is narrower than the roughly ${cable.toFixed(2)} mm cable that Bambu's own base implies (a ${BAMBU_LED.cableSlot} mm slot gripping it by ${BAMBU_LED.cableGrip} mm). Nobody has measured the cable, so check yours before you print.` });
+  }
+  if (!f.vents.length) {
+    out.push({ param: 'shadeSide', severity: 'info',
+      message: 'The pocket is too small for the two cooling holes under the puck, so they have been left out.' });
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -1667,8 +2235,25 @@ function hints(p) {
       : 'A brim of 5 mm. The footprint is a line a few millimetres wide and a hundred long, and this is the print that walks off the bed at layer 200 if it is not held down.');
   } else if (g.curved) {
     notes.push(`Curved ${g.theta / DEG < 1 ? 'barely' : (g.theta / DEG).toFixed(0) + ' degrees'}: the arc is its own stiffener, so this one does not need a brim and will not warp the way a flat panel does.`);
+  } else if (!g.fitting) {
+    notes.push(`The shade prints as one square tube — all four walls vertical, nothing overhanging, no supports and no seam to glue. Print it the way it comes out of Bluesheet, standing. With no fitting it is an open tube of ${g.frameT.toFixed(1)} mm solid PLA, meant to stand over an LED tea light or a small base. The E27 and Bambu LED fittings give it something to hang from or stand on.`);
+  } else if (g.fitting.kind === 'bambu-led') {
+    const f = g.fitting;
+    notes.push(`The shade stands on its own base: a ${f.floorT.toFixed(1)} mm floor, then a ${(2 * f.rP).toFixed(1)} mm pocket ${f.pocketD.toFixed(1)} mm deep for the Bambu LED puck, then the four walls. Print it the way it comes out, base on the bed. The only overhang is the wall bridging the ${f.slotW.toFixed(1)} mm cable slot, which any printer bridges.`);
+    notes.push('Fitting it: lay the cable into the slot from underneath, so the plug and the switch never have to go through a hole, then press the puck into the pocket face up. The light shines up into the open shade and reaches all four walls.');
+    notes.push(`The pocket is Bambu's CAD figure for the puck (${BAMBU_LED.puckCad} mm; the store page says ${BAMBU_LED.puckStore}, the drawing ${BAMBU_LED.puckDrawing}) plus ${FIT.push} mm a side, and the slot is guessed from Bambu's own base. Neither has been measured on a real puck: if it rattles or will not go in, change the pocket and reprint.`);
+  } else if (g.fitting.table) {
+    const f = g.fitting;
+    notes.push(`A table lamp shade prints the way it stands: the first ${f.webT.toFixed(1)} mm on the bed is the web, a flat plate with a ${(2 * f.rB).toFixed(1)} mm bore and ${f.vents.length} vent${f.vents.length === 1 ? '' : 's'}, and the four walls rise straight off it. Nothing overhangs, no supports, and the pictures are built the right way up.`);
+    notes.push(`To fit it: run the holder's shade ring down its thread, drop the shade over the holder so the holder comes up through the bore, and let the web sit on the ring. If your holder has a second ring, screw it down on top of the web inside the shade to clamp it.`);
+    notes.push(`The ${(2 * f.rB).toFixed(1)} mm bore is the published Ø ${E27.thread} mm E27 shade-ring thread plus a millimetre, not a measurement of your holder. Print the bore gauge in E27 fitter parts first, on these same settings: twenty minutes against a print this long.`);
+    notes.push(`LED bulbs only. Standing up, the heat leaves by the open top and the vents in the web draw cool air in underneath, which is a better draught than the pendant gets. The ${g.frameT.toFixed(1)} mm walls are still solid PLA, which softens at about ${PLA_TG} °C, so the clearance to the glass matters exactly as much.`);
   } else {
-    notes.push(`The shade prints as one square tube — all four walls vertical, nothing overhanging, no supports and no seam to glue. Print it the way it comes out of Bluesheet, standing. It has no lamp fitting: the walls are ${g.frameT.toFixed(1)} mm of solid PLA and it is meant to stand over an LED tea light or a small base, not to hang off a bulb holder that will cook it.`);
+    const f = g.fitting;
+    notes.push(`It prints upside down on purpose. The first ${f.webT.toFixed(1)} mm on the bed is the web, a flat plate with a ${(2 * f.rB).toFixed(1)} mm bore and ${f.vents.length} vent${f.vents.length === 1 ? '' : 's'}, and the four walls rise straight off it: nothing overhangs, no supports. Hung from the holder the web is at the top, so the pictures are built upside down here and read the right way up on the ceiling.`);
+    notes.push(`To hang it: unscrew the holder's shade ring, lift the shade up under the holder so the holder comes down through the bore, then reach inside and screw the ring back up under the web. The web sits on the ring and the hub is what it clamps.`);
+    notes.push(`The ${(2 * f.rB).toFixed(1)} mm bore is the published Ø ${E27.thread} mm E27 shade-ring thread plus a millimetre, not a measurement of your holder. Print the bore gauge in E27 fitter parts first, on these same settings: twenty minutes against a print this long.`);
+    notes.push(`LED bulbs only. The walls are ${g.frameT.toFixed(1)} mm of solid PLA, the top is closed except for the bore and the vents, and PLA softens at about ${PLA_TG} °C.`);
   }
   if (g.caption) {
     const c = g.caption;
@@ -1707,7 +2292,10 @@ export default {
     'flat, the whole tonal range would be quantised to the layer height. Four shapes: a flat ' +
     'plate with a frame and a hanger hole, an outward curve that stands up by itself and cannot ' +
     'warp, an inward curve to sit in front of a lamp, and a four-sided shade with a different ' +
-    'photograph on each face. The picture is never stretched — it keeps its aspect ratio or it ' +
+    'photograph on each face. The shade carries its relief on the outside or the inside, and ' +
+    'reads the right way round from outside either way. It can take a lamp fitting: a web with ' +
+    'a bore for an E27 lampholder, to hang as a pendant or stand on a table lamp, or a base ' +
+    'with a pocket and a cable slot for Bambu Lab\'s LED puck. The picture is never stretched — it keeps its aspect ratio or it ' +
     'is cropped, and you choose which — and it is resampled with a real filter rather than ' +
     'point-sampled, because a point-sampled photograph prints with a visible staircase down ' +
     'every diagonal. A flat plate can carry a message under the picture in one of three ways: ' +
@@ -1728,7 +2316,18 @@ export default {
     { name: 'Night-light shade', values: {
       shape: 'shade', shadeSide: 70, fit: 'crop', imageHeight: 85, frame: true,
       frameWidth: 5, frameThickness: 3.2, minThickness: 0.7, maxThickness: 2.8,
-      gamma: 1.15, edgeFade: 1.5, pixelPitch: 0.4 } },
+      gamma: 1.15, edgeFade: 1.5, pixelPitch: 0.4,
+      fitting: 'bambu-led', fitBore: BAMBU_POCKET, fitSlot: BAMBU_SLOT, fitWeb: 3 } },
+    { name: 'E27 pendant shade', values: {
+      shape: 'shade', shadeSide: 110, fit: 'crop', imageHeight: 115, frame: true,
+      frameWidth: 6, frameThickness: 3.2, minThickness: 0.7, maxThickness: 2.8,
+      gamma: 1.15, edgeFade: 1.5, pixelPitch: 0.6,
+      fitting: 'e27', fitBore: FITTINGS.e27.bore, fitHub: FITTINGS.e27.hub, fitWeb: 3, fitArm: 10 } },
+    { name: 'E27 table lamp shade', values: {
+      shape: 'shade', shadeSide: 120, fit: 'crop', imageHeight: 115, frame: true,
+      frameWidth: 6, frameThickness: 3.2, minThickness: 0.7, maxThickness: 2.8,
+      gamma: 1.15, edgeFade: 1.5, pixelPitch: 0.6,
+      fitting: 'e27', fitMount: 'table', fitBore: FITTINGS.e27.bore, fitHub: FITTINGS.e27.hub, fitWeb: 3, fitArm: 10 } },
     { name: 'Tea-light arch', values: {
       shape: 'arc-in', imageWidth: 90, radius: 46, frame: true, frameWidth: 4,
       frameThickness: 3, foot: true, footHeight: 4, footDepth: 5,
