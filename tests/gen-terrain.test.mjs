@@ -21,7 +21,7 @@ import { conformance } from './lib/genconform.mjs';
 import gen, {
   groundExtent, asField, syntheticField, metresPerDegLat, metresPerDegLon, fillVoids, VOID_FLOOR,
 } from '../js/gen/terrain.js';
-import { triGrid, pointInsideMesh } from '../js/kernel/validate.js';
+import { triGrid, pointInsideMesh, analyze } from '../js/kernel/validate.js';
 import { readFileSync } from 'node:fs';
 
 suite('gen-terrain');
@@ -294,6 +294,20 @@ conformance(gen, 'terrain');
     !!joint && Math.abs(len(joint) - pj.jointSize) < 1e-6 && Math.abs(joint.from[0] - bj.max[0]) < 1e-6
       && Math.abs(joint.to[0] - bj.max[0]) < 1e-6 && Math.abs(len(joint) - rj.meta.joint.widthAlongYMm) < 1e-6,
     joint ? `${len(joint).toFixed(2)} mm at x=${joint.from[0].toFixed(2)} (tab face at ${bj.max[0].toFixed(2)})` : 'missing');
+}
+
+// ---- no zero-area triangles at the defaults or any preset -----------------
+// analyze() is the analysis panel's own count. healTJunctions() with
+// { clean: true } fans each split triangle from a corner whose edges are whole;
+// the plain fan from corner 0 laid slivers flat along the split edge (12 at the defaults).
+// The ear clipper's own slivers (a near-collinear run of cap vertices clipped
+// as a ~1e-15 mm² triangle) went to 0 with the 2026-10-06 poly2d fix, and the
+// counts here were pinned until then; any nonzero count is a regression.
+{
+  for (const [name, values] of [['defaults', {}], ...gen.presets.map(p => [p.name, p.values])]) {
+    const n = analyze(asMesh(gen.build({ ...P0, ...values }, ctx()))).degenerateTris;
+    check(`${name}: no zero-area triangles`, n === 0, `${n} degenerate`);
+  }
 }
 
 done();

@@ -320,7 +320,10 @@ export function transformRing(ring, xf = {}) {
 // doubly linked vertex list, holes eliminated by bridging each hole's leftmost
 // vertex to a visible vertex of the outer ring, and three escalating passes
 // when a polygon runs out of ears (filter collinear points, cut local
-// self-intersections, split on a valid diagonal). Rewritten here in the
+// self-intersections, split on a valid diagonal). Two departures: a flat ear
+// is clipped only when nothing else is left, and flipSlivers() then trades it
+// for two clean triangles; and an ear whose diagonal runs through another
+// vertex is refused. Rewritten here in the
 // counter-clockwise-positive convention this kernel uses everywhere else —
 // earcut works in screen space where the sign of every orientation test is
 // inverted, and mixing the two conventions is how you get a cap that is
@@ -389,14 +392,45 @@ function ringSignedArea2(data, start, end) {
   return sum;                       // twice the signed area, positive for CCW
 }
 
-/** Drop duplicate and collinear vertices; they can never be ears. */
-function filterENodes(start, end) {
+/**
+ * Does another node in p's loop carry p's index (a hole bridge's copy)? The
+ * walk stops at p or back at its start, because eliminateHole() can hand
+ * filterENodes() a node the previous filter already unlinked.
+ */
+function indexElsewhere(p) {
+  const stop = p.next;
+  let q = stop;
+  do { if (q !== p && q.i === p.i) return true; q = q.next; } while (q !== stop && q !== p);
+  return false;
+}
+
+/** Strictly between its neighbours: a collinear middle vertex, not a spike tip. */
+function between(a, b, c) {
+  return (b.x - a.x) * (c.x - a.x) + (b.y - a.y) * (c.y - a.y) > 0 &&
+         (b.x - c.x) * (a.x - c.x) + (b.y - c.y) * (a.y - c.y) > 0;
+}
+
+/**
+ * Drop duplicate vertices and the tips of zero-area spikes; neither can be an
+ * ear. A collinear vertex strictly between its neighbours is kept: dropping it
+ * leaves it out of the cap while the walls still use it, a T-junction. The ear
+ * loop's flat-ear fallback clips it instead and flipSlivers() tidies up. A
+ * spike tip is dropped, but when `triangles` is given and no other node in the
+ * loop carries its index (a hole bridge's copy would), it goes out as a
+ * zero-area triangle so the cap still reaches it, unless the whole loop is
+ * one line and has no area to cap.
+ */
+function filterENodes(start, end, triangles) {
   if (!start) return start;
   if (!end) end = start;
   let p = start, again;
   do {
     again = false;
-    if (!p.steiner && (nodesEqual(p, p.next) || tri2(p.prev, p, p.next) === 0)) {
+    const dup = nodesEqual(p, p.next);
+    if (!p.steiner && (dup || (tri2(p.prev, p, p.next) === 0 && !between(p.prev, p, p.next)))) {
+      if (!dup && triangles && p.prev.next === p && !indexElsewhere(p) && !allCollinear(p)) {
+        triangles.push(p.prev.i / 2, p.i / 2, p.next.i / 2);
+      }
       removeENode(p);
       p = end = p.prev;
       if (p === p.next) break;
@@ -408,25 +442,46 @@ function filterENodes(start, end) {
   return end;
 }
 
+/** Every vertex of the loop exactly in line: the loop has no area to cover. */
+function allCollinear(start) {
+  let p = start;
+  do { if (tri2(p.prev, p, p.next) !== 0) return false; p = p.next; } while (p !== start);
+  return true;
+}
+
 function earcutLinked(ear, triangles, pass, budget) {
   if (!ear) return;
-  let stop = ear, prev, next;
+  let stop = ear, prev, next, sliver = null;
   while (ear.prev !== ear.next) {
     if (--budget.n < 0) { fanFallback(ear, triangles, budget); return; }
     prev = ear.prev;
     next = ear.next;
-    if (isEar(ear)) {
+    const kind = earKind(ear);
+    if (kind === 2) {
       triangles.push(prev.i / 2, ear.i / 2, next.i / 2);
       removeENode(ear);
       ear = next.next;
       stop = next.next;
+      sliver = null;
       continue;
     }
+    if (kind === 1 && !sliver) sliver = ear;
     ear = next;
+    if (ear === stop && sliver && !allCollinear(ear)) {
+      // A whole lap and the only ears are flat. Clip one rather than escalate:
+      // its tip stays in the cap, so there is no T-junction, and flipSlivers()
+      // trades the sliver for two clean triangles once the cap is complete.
+      prev = sliver.prev; next = sliver.next;
+      triangles.push(prev.i / 2, sliver.i / 2, next.i / 2);
+      removeENode(sliver);
+      ear = stop = next.next;
+      sliver = null;
+      continue;
+    }
     if (ear === stop) {
       // No ear anywhere in the loop: escalate.
-      if (!pass) earcutLinked(filterENodes(ear), triangles, 1, budget);
-      else if (pass === 1) earcutLinked(cureLocalIntersections(filterENodes(ear), triangles), triangles, 2, budget);
+      if (!pass) earcutLinked(filterENodes(ear, null, triangles), triangles, 1, budget);
+      else if (pass === 1) earcutLinked(cureLocalIntersections(filterENodes(ear, null, triangles), triangles), triangles, 2, budget);
       else if (pass === 2) splitEarcut(ear, triangles, budget);
       break;
     }
@@ -451,20 +506,121 @@ function fanFallback(node, triangles, budget) {
   budget.fallback = true;
 }
 
-function isEar(ear) {
+/**
+ * Is a triangle flat? Its height over its longest edge is at most ABS_EPS, so
+ * the apex sits within a nanometre of the line through the other two: the
+ * same tolerance the kernel uses for "same point". `t` is tri2(a, b, c).
+ * Height rather than area, because area is mm² and does not scale: an absolute
+ * 1e-9 mm² calls a 1 µm-wide, 2 mm-long triangle flat, and passes as solid a
+ * 200 mm chord with its middle point 1e-11 mm off the line. The slivers this
+ * exists for are rounding noise, 1e-16 to 7e-15 mm high on 0.1 to 25 mm edges,
+ * six orders of magnitude under the line.
+ */
+function isFlat(ax, ay, bx, by, cx, cy, t) {
+  const l2 = Math.max((bx - ax) ** 2 + (by - ay) ** 2, (cx - bx) ** 2 + (cy - by) ** 2,
+                      (ax - cx) ** 2 + (ay - cy) ** 2);
+  return t * t <= ABS_EPS * ABS_EPS * l2;
+}
+
+/**
+ * 2 = a clean ear. 1 = a valid ear that is flat (a sliver of float noise, or a
+ * vertex exactly on the line between its neighbours): clipped only when the
+ * loop has nothing better, and then flipped away by flipSlivers(). 0 = not an
+ * ear. An exactly-flat tip counts as 1 only when it lies strictly between its
+ * neighbours; a zero-area spike is left to filterENodes as before.
+ */
+function earKind(ear) {
   const a = ear.prev, b = ear, c = ear.next;
-  if (tri2(a, b, c) <= 0) return false;           // reflex or flat: not an ear
+  const t = tri2(a, b, c);
+  if (t < 0) return 0;                            // reflex
   const ax = a.x, bx = b.x, cx = c.x, ay = a.y, by = b.y, cy = c.y;
-  const x0 = Math.min(ax, bx, cx), y0 = Math.min(ay, by, cy);
-  const x1 = Math.max(ax, bx, cx), y1 = Math.max(ay, by, cy);
+  const flat = isFlat(ax, ay, bx, by, cx, cy, t);
+  if (t === 0 && !between(a, b, c)) return 0;
+  const x0 = Math.min(ax, bx, cx) - ABS_EPS, y0 = Math.min(ay, by, cy) - ABS_EPS;
+  const x1 = Math.max(ax, bx, cx) + ABS_EPS, y1 = Math.max(ay, by, cy) + ABS_EPS;
+  const ex = cx - ax, ey = cy - ay, e2 = ex * ex + ey * ey, onTol = ABS_EPS * ABS_EPS * e2;
   let p = c.next;
   while (p !== a) {
-    if (p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1 &&
-        pointInTri(ax, ay, bx, by, cx, cy, p.x, p.y) &&
-        tri2(p.prev, p, p.next) <= 0) return false;
+    if (p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1) {
+      if (pointInTri(ax, ay, bx, by, cx, cy, p.x, p.y) && tri2(p.prev, p, p.next) <= 0) return 0;
+      // A vertex on the new diagonal c-a, convex or not. The reflex-only test
+      // above misses it, because a boundary that touches the diagonal from
+      // outside need not dip inside the triangle; the cap then has a vertex in
+      // the middle of an edge (a T-junction) and a flat triangle to close it.
+      // isValidDiagonal() already refuses such a diagonal for splitEarcut.
+      if (!nodesEqual(p, a) && !nodesEqual(p, c)) {
+        const cr = ex * (p.y - ay) - ey * (p.x - ax), dot = ex * (p.x - ax) + ey * (p.y - ay);
+        if (cr * cr <= onTol && dot > 0 && dot < e2) return 0;
+      }
+    }
     p = p.next;
   }
-  return true;
+  return flat ? 1 : 2;
+}
+
+/**
+ * Edge-flip every flat triangle out of a finished triangulation. A sliver
+ * (a, b, c) and the triangle (a, c, x) across its long edge tile the quad
+ * a-b-c-x; when (a, b, x) and (b, c, x) are both clean the quad is convex and
+ * they tile it too, so the boundary, every vertex and the area are unchanged
+ * and no T-junction appears. Each flip removes at least one sliver, so the
+ * loop ends. A sliver with no clean flip (a needle between two near-coincident
+ * points, or one on a boundary edge) is kept: a flat triangle leaves the cap
+ * closed, where dropping it would open a hole.
+ */
+function flipSlivers(data, tris) {
+  const X = i => data[2 * i], Y = i => data[2 * i + 1];
+  const t2 = (i, j, k) => (X(j) - X(i)) * (Y(k) - Y(i)) - (Y(j) - Y(i)) * (X(k) - X(i));
+  const flat = (i, j, k) => isFlat(X(i), Y(i), X(j), Y(j), X(k), Y(k), t2(i, j, k));
+  const clean = (i, j, k) => t2(i, j, k) > 0 && !flat(i, j, k);
+  const nT = tris.length / 3;
+  let todo = [];
+  for (let t = 0; t < nT; t++) if (flat(tris[3 * t], tris[3 * t + 1], tris[3 * t + 2])) todo.push(t);
+  if (!todo.length) return 0;
+  // Directed edge u->v to the triangle holding it; -1 when two do (garbage in).
+  const N = data.length / 2;
+  const owner = new Map();
+  const own = (u, v, t) => { const k = u * N + v; owner.set(k, owner.has(k) ? -1 : t); };
+  for (let t = 0; t < nT; t++) {
+    const a = tris[3 * t], b = tris[3 * t + 1], c = tris[3 * t + 2];
+    own(a, b, t); own(b, c, t); own(c, a, t);
+  }
+  const claim = (k, t) => { if (owner.get(k) !== -1) owner.set(k, t); };
+  const set = (t, a, b, c) => {
+    tris[3 * t] = a; tris[3 * t + 1] = b; tris[3 * t + 2] = c;
+    claim(a * N + b, t); claim(b * N + c, t); claim(c * N + a, t);
+  };
+  const len2 = (i, j) => (X(j) - X(i)) ** 2 + (Y(j) - Y(i)) ** 2;
+  let flips = 0;
+  for (let progress = true; progress && todo.length;) {
+    progress = false;
+    const left = [];
+    for (const t of todo) {
+      const v = [tris[3 * t], tris[3 * t + 1], tris[3 * t + 2]];
+      if (!flat(v[0], v[1], v[2])) continue;            // already flipped out as a neighbour
+      // Try the three edges longest first; edge (a -> b) is opposite apex c.
+      const order = [0, 1, 2].sort((p, q) => len2(v[(q + 1) % 3], v[(q + 2) % 3]) - len2(v[(p + 1) % 3], v[(p + 2) % 3]));
+      let done = false;
+      for (const k of order) {
+        const b = v[k], c = v[(k + 1) % 3], a = v[(k + 2) % 3];   // sliver (a, b, c), long edge c -> a
+        const u = owner.get(a * N + c);
+        if (u === undefined || u < 0 || u === t) continue;
+        const w = [tris[3 * u], tris[3 * u + 1], tris[3 * u + 2]];
+        const x = w[0] !== a && w[0] !== c ? w[0] : w[1] !== a && w[1] !== c ? w[1] : w[2];
+        if (x === b || !clean(a, b, x) || !clean(b, c, x)) continue;
+        owner.delete(c * N + a); owner.delete(a * N + c);
+        set(t, a, b, x); set(u, b, c, x);
+        flips++; done = progress = true;
+        break;
+      }
+      if (!done) left.push(t);
+    }
+    todo = left;
+  }
+  // A flat triangle no flip can absorb is kept, zero area or not: it keeps
+  // every ring vertex in the cap and the cap closed. Dropping one leaves a
+  // vertex the walls use and the cap does not, a T-junction.
+  return flips;
 }
 
 function cureLocalIntersections(start, triangles) {
@@ -479,7 +635,7 @@ function cureLocalIntersections(start, triangles) {
     }
     p = p.next;
   } while (p !== start);
-  return filterENodes(p);
+  return filterENodes(p, null, triangles);
 }
 
 function splitEarcut(start, triangles, budget) {
@@ -489,8 +645,8 @@ function splitEarcut(start, triangles, budget) {
     while (b !== a.prev) {
       if (a.i !== b.i && isValidDiagonal(a, b)) {
         let c = splitPolygonNodes(a, b);
-        a = filterENodes(a, a.next);
-        c = filterENodes(c, c.next);
+        a = filterENodes(a, a.next, triangles);
+        c = filterENodes(c, c.next, triangles);
         earcutLinked(a, triangles, 0, budget);
         earcutLinked(c, triangles, 0, budget);
         return;
@@ -574,7 +730,7 @@ function getLeftmost(start) {
   return leftmost;
 }
 
-function eliminateHoles(data, holeIndices, outerNode) {
+function eliminateHoles(data, holeIndices, outerNode, triangles) {
   const queue = [];
   for (let i = 0; i < holeIndices.length; i++) {
     const start = holeIndices[i];
@@ -585,16 +741,16 @@ function eliminateHoles(data, holeIndices, outerNode) {
     queue.push(getLeftmost(list));
   }
   queue.sort((a, b) => (a.x - b.x) || (a.y - b.y));
-  for (const hole of queue) outerNode = eliminateHole(hole, outerNode);
+  for (const hole of queue) outerNode = eliminateHole(hole, outerNode, triangles);
   return outerNode;
 }
 
-function eliminateHole(hole, outerNode) {
+function eliminateHole(hole, outerNode, triangles) {
   const bridge = findHoleBridge(hole, outerNode);
   if (!bridge) return outerNode;
   const bridgeReverse = splitPolygonNodes(bridge, hole);
-  filterENodes(bridgeReverse, bridgeReverse.next);
-  return filterENodes(bridge, bridge.next);
+  filterENodes(bridgeReverse, bridgeReverse.next, triangles);
+  return filterENodes(bridge, bridge.next, triangles);
 }
 
 /**
@@ -644,8 +800,12 @@ function sectorContainsSector(m, p) {
  * triangulate(shape) -> {points, tris}
  * `points` is every input vertex, outer ring first then each hole, in the order
  * given — the index buffer refers to those, so a caller can extrude the same
- * point list into walls and caps without re-matching coordinates. Collinear and
- * duplicate vertices survive in `points` but no triangle references them.
+ * point list into walls and caps without re-matching coordinates. Duplicate
+ * vertices survive in `points` but no triangle references them. A collinear
+ * vertex is normally a corner of its neighbours' triangles, so the cap meets
+ * the walls; it goes unreferenced only when it sits on a zero-area stretch of
+ * the ring that no clean triangle can reach. No triangle is flat (apex within
+ * ABS_EPS of the opposite edge) unless the ring itself leaves no other choice.
  */
 export function triangulate(shapeIn) {
   const shape = asShape(shapeIn).filter(r => r && r.length >= 3);
@@ -661,13 +821,14 @@ export function triangulate(shapeIn) {
   let outerNode = linkRing(data, 0, outerEnd, true);
   const tris = [];
   if (!outerNode || outerNode.next === outerNode.prev) return { points, tris };
-  if (holeIndices.length) outerNode = eliminateHoles(data, holeIndices, outerNode);
+  if (holeIndices.length) outerNode = eliminateHoles(data, holeIndices, outerNode, tris);
   // Budget: ear clipping visits at most O(n) nodes per removed ear, so 64n²
   // capped at 20M is orders of magnitude of headroom for valid input and still
   // bounded for garbage.
   const n = data.length / 2;
   const budget = { n: Math.min(20e6, 64 * n * n + 1000), fallback: false };
   earcutLinked(outerNode, tris, 0, budget);
+  flipSlivers(data, tris);
   return { points, tris };
 }
 

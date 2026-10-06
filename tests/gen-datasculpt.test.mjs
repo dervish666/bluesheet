@@ -157,4 +157,18 @@ const build = (over = {}) => asMesh(gen.build({ ...defaults(gen), ...over }, C))
     eng ? `${len(eng).toFixed(2)} mm from z=${eng.from[2].toFixed(2)} to ${eng.to[2].toFixed(2)}` : 'missing');
 }
 
+// ---- no zero-area triangles at the defaults or any preset -----------------
+// analyze() is the analysis panel's own count. healTJunctions() with
+// { clean: true } fans each split triangle from a corner whose edges are whole;
+// the plain fan from corner 0 laid slivers flat along the split edge (378 on Four seasons, side by side).
+// The ear clipper's own slivers (a near-collinear run of cap vertices clipped
+// as a ~1e-15 mm² triangle) went to 0 with the 2026-10-06 poly2d fix, and the
+// counts here were pinned until then; any nonzero count is a regression.
+{
+  for (const [name, values] of [['defaults', {}], ...gen.presets.map(p => [p.name, p.values])]) {
+    const n = analyze(build(values)).degenerateTris;
+    check(`${name}: no zero-area triangles`, n === 0, `${n} degenerate`);
+  }
+}
+
 done();

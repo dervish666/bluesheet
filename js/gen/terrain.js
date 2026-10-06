@@ -1334,7 +1334,7 @@ function assemble(g, lab) {
   if (lab.panel) emitPanel(m, lab.panel);
   // Once, at the end: close any T-junction the ear clipper left behind, then one
   // transform off the assembled bounding box to sit it on the plate and centre it.
-  return m.healTJunctions(1e-5);
+  return m.healTJunctions(1e-5, { clean: true });
 }
 
 // ---------------------------------------------------------------------------

@@ -472,7 +472,7 @@ function build(p, ctx = {}) {
   // is a T-junction on every such run. Heal rather than avoid: the kernel has
   // the fix and it is the same class of defect the coaster and the data
   // sculpture had.
-  codeMesh = codeMesh.healTJunctions();
+  codeMesh = codeMesh.healTJunctions(1e-5, { clean: true });
   const mesh = Mesh.merge([plateMesh, codeMesh]);
 
   // Centre by construction is exact for the outline; the mesh's bbox is the

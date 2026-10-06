@@ -1291,7 +1291,7 @@ function build(p, ctx = {}) {
   // point the other does not — both halves right, the seam still open. Healing
   // T-junctions is a seam repair, not a cover-up: it adds no volume and moves no
   // vertex, it only splits a long edge where another already ends.
-  return { mesh: mesh.healTJunctions(), meta };
+  return { mesh: mesh.healTJunctions(1e-5, { clean: true }), meta };
 }
 
 // ---------------------------------------------------------------------------

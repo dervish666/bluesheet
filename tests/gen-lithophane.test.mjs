@@ -16,7 +16,7 @@ import {
   isSolid, onPlate, centredXY, fitsBed, topology,
 } from './lib/genconform.mjs';
 import gen, { toneCurve, thicknessMap } from '../js/gen/lithophane.js';
-import { shellsOf } from '../js/kernel/validate.js';
+import { shellsOf, analyze } from '../js/kernel/validate.js';
 
 suite('gen lithophane');
 
@@ -207,7 +207,9 @@ near('tone curve is the identity at its defaults', toneCurve(0.37, {}), 0.37, 1e
 // the geometry stage would leave the field above perfectly correct.
 console.log('\n-- the mapping, measured on the mesh --');
 {
-  const m = mesh({ image: hGradient(), frame: false, edgeFade: 0, overhangGuard: false, fit: 'crop', imageWidth: 60, imageHeight: 60 });
+  // Mirroring off, so world -X is the picture's left: this is the tone
+  // mapping, not handedness, which has its own section below.
+  const m = mesh({ image: hGradient(), mirror: 'off', frame: false, edgeFade: 0, overhangGuard: false, fit: 'crop', imageWidth: 60, imageHeight: 60 });
   const b = m.bbox();
   const zc = b.min[2] + b.size[2] / 2;
   const left = thicknessNear(m, b.min[0], zc, 0.6);
@@ -396,12 +398,84 @@ console.log('\n-- image handling --');
     asMesh(r).bbox().size[1], P.maxThickness, 1e-6);
 }
 {
-  const auto = build({ shape: 'flat' }), lamp = build({ shape: 'arc-in' });
-  check('a plate you look straight at is not mirrored', auto.meta.picture.mirrored === false);
-  check('a lamp you look at through the smooth face is', lamp.meta.picture.mirrored === true);
-  check('and the automatic choice can be overridden both ways',
-    build({ shape: 'flat', mirror: 'on' }).meta.picture.mirrored === true &&
-    build({ shape: 'arc-in', mirror: 'off' }).meta.picture.mirrored === false);
+  for (const shape of ['arc-out', 'arc-in', 'shade']) {
+    check(`automatic mirroring leaves "${shape}" unflipped`, build({ shape }).meta.picture.mirrored === false);
+  }
+  check('automatic mirroring flips the flat plate, which is read from its relief face',
+    build({ shape: 'flat' }).meta.picture.mirrored === true);
+  check('and both can be overridden by hand',
+    build({ shape: 'flat', mirror: 'off' }).meta.picture.mirrored === false &&
+    build({ shape: 'arc-in', mirror: 'on' }).meta.picture.mirrored === true);
+}
+
+// ===========================================================================
+// Handedness, from where the viewer stands
+//
+// Left half of the photograph white (thin), right half black (thick), read
+// with rays from the viewer's real position. The viewer's right is worked out
+// from where they stand (up x the direction towards them), never borrowed
+// from the generator, and the side of a curve that is convex is found from
+// the mesh. meta.picture.mirrored is not consulted: it is the generator's
+// opinion of itself.
+// ===========================================================================
+console.log('\n-- handedness from the viewer --');
+function rayHits(m, o, d) {
+  const out = [], T = m.tris, Q = m.positions;
+  for (let i = 0; i < T.length; i += 3) {
+    const a = T[i] * 3, b = T[i + 1] * 3, c = T[i + 2] * 3;
+    const e1 = [Q[b] - Q[a], Q[b + 1] - Q[a + 1], Q[b + 2] - Q[a + 2]];
+    const e2 = [Q[c] - Q[a], Q[c + 1] - Q[a + 1], Q[c + 2] - Q[a + 2]];
+    const pv = [d[1] * e2[2] - d[2] * e2[1], d[2] * e2[0] - d[0] * e2[2], d[0] * e2[1] - d[1] * e2[0]];
+    const det = e1[0] * pv[0] + e1[1] * pv[1] + e1[2] * pv[2];
+    if (Math.abs(det) < 1e-12) continue;
+    const t0 = [o[0] - Q[a], o[1] - Q[a + 1], o[2] - Q[a + 2]];
+    const u = (t0[0] * pv[0] + t0[1] * pv[1] + t0[2] * pv[2]) / det;
+    if (u < -1e-9 || u > 1 + 1e-9) continue;
+    const q = [t0[1] * e1[2] - t0[2] * e1[1], t0[2] * e1[0] - t0[0] * e1[2], t0[0] * e1[1] - t0[1] * e1[0]];
+    const v = (d[0] * q[0] + d[1] * q[1] + d[2] * q[2]) / det;
+    if (v < -1e-9 || u + v > 1 + 1e-9) continue;
+    const t = (e2[0] * q[0] + e2[1] * q[1] + e2[2] * q[2]) / det;
+    if (t > 1e-9) out.push(t);
+  }
+  out.sort((x, y) => x - y);
+  return out.filter((t, i) => i === 0 || t - out[i - 1] > 1e-6);
+}
+{
+  const half = img(64, 64, (x) => (x < 32 ? 1 : 0));
+  const H = { image: half, edgeFade: 0, overhangGuard: false, foot: false, hanger: 'none', fit: 'crop', imageWidth: 80, imageHeight: 50, radius: 70 };
+  /** Thickness seen from a viewer standing along N (horizontal, unit) from the
+   *  centre, at u mm to their right. */
+  const seen = (m, N, u) => {
+    const b = m.bbox(), z = (b.min[2] + b.max[2]) / 2, R = [-N[1], N[0]];
+    const o = [b.center[0] + 300 * N[0] + u * R[0], b.center[1] + 300 * N[1] + u * R[1], z];
+    const h = rayHits(m, o, [-N[0], -N[1], 0]);
+    return h.length >= 2 ? h[1] - h[0] : NaN;
+  };
+  const reads = (m, N) => { const l = seen(m, N, -15), r = seen(m, N, 15); return { ok: l < 1.0 && r > 2.8, l, r }; };
+  for (const shape of ['arc-out', 'arc-in']) {
+    const m = mesh({ ...H, shape });
+    // Which way the curve bulges: the outer surface's middle stands further
+    // along that direction than its two ends.
+    let mid = -Infinity, end = -Infinity;
+    const b = m.bbox();
+    for (let i = 0; i < m.vertCount; i++) {
+      const [x, y] = m.vertex(i);
+      if (Math.abs(y - b.center[1]) < 2) mid = Math.max(mid, x);
+      else if (Math.abs(y - b.center[1]) > b.size[1] / 2 - 2) end = Math.max(end, x);
+    }
+    const N = mid > end ? [1, 0] : [-1, 0];
+    const r = reads(m, N);
+    check(`${shape}: from outside the convex face, the bright half is on the viewer's left`, r.ok,
+      `convex towards ${N[0] > 0 ? '+X' : '-X'}; left ${r.l.toFixed(2)} mm, right ${r.r.toFixed(2)} mm`);
+  }
+  {
+    const m = mesh({ ...H, shape: 'flat' });
+    const back = reads(m, [0, -1]), front = reads(m, [0, 1]);
+    check('flat: reads the right way round from its front, the relief face (+Y)', front.ok,
+      `left ${front.l.toFixed(2)} mm, right ${front.r.toFixed(2)} mm`);
+    check('flat: and back to front from its smooth back (-Y): one reading side', !back.ok,
+      `left ${back.l.toFixed(2)} mm, right ${back.r.toFixed(2)} mm`);
+  }
 }
 
 // ===========================================================================
@@ -690,17 +764,58 @@ console.log('\n-- the caption --');
   check('lit: the skin left in front is thin enough to pass light',
     lit.meta.caption.remainingMM <= 1.0, `${lit.meta.caption.remainingMM.toFixed(2)} mm`);
   {
-    // The one that a screenshot cannot catch: cut into the back, the words are
-    // read through the panel and have to be laid down mirrored. Same letters,
-    // same band, opposite hand — so the two pockets must be x-negations.
-    const key = (verts) => verts
-      .filter(v => v[1] > 1e-6 && v[1] < T - 1e-6)                 // the pocket floor, not the two faces
-      .map(v => `${(Math.round(v[0] * 1e4) / 1e4).toFixed(4)},${(Math.round(v[2] * 1e4) / 1e4).toFixed(4)}`)
-      .sort().join(' ');
-    const flipX = (verts) => verts.map(v => [-v[0], v[1], v[2]]);
-    const e = key(inBand(engraved)), l = key(inBand(lit)), lm = key(flipX(inBand(lit)));
-    check('lit: the message is mirrored, so it reads the right way round through the panel',
-      lm === e && l !== e, l === e ? 'not mirrored at all' : lm === e ? 'mirrored' : 'mirrored into something else');
+    // Reading order, from the front (+Y), for every style. "IW": a narrow
+    // letter then a wide one. Standing at +Y and facing -Y, the viewer's right
+    // is -X (up x towards-the-viewer), so the I, read first, must be at the
+    // larger X. Each style's ink is found on its own surface: raised standing
+    // proud of the frame, engraved and lit on their pocket floors.
+    const inkOf = (style, r) => inBand(r).filter(v => style === 'raised'
+      ? v[1] > T + 1e-6
+      : v[1] > 1e-6 && v[1] < T - 1e-6);
+    for (const style of ['raised', 'engraved', 'lit']) {
+      const r = cap({ caption: 'IW', captionStyle: style, captionHeight: 10 });
+      const xs = [...new Set(inkOf(style, r).map(v => Math.round(v[0] * 1e4) / 1e4))].sort((a, b) => a - b);
+      let gap = 0, at = 0;
+      for (let i = 1; i < xs.length; i++) if (xs[i] - xs[i - 1] > gap) { gap = xs[i] - xs[i - 1]; at = i; }
+      const lo = xs.slice(0, at), hi = xs.slice(at);
+      const width = (g) => g[g.length - 1] - g[0];
+      const iAtHigherX = lo.length > 1 && hi.length > 1 && width(hi) < width(lo);
+      check(`${style}: "IW" reads I then W from the front`, iAtHigherX,
+        `glyph at -X ${lo.length ? width(lo).toFixed(2) : '?'} mm wide, glyph at +X ${hi.length ? width(hi).toFixed(2) : '?'} mm wide`);
+    }
+    // Photograph and caption on ONE plate, both from the front. "Birthday
+    // card" with a half-white picture and "IW" in each style: the bright half
+    // on the viewer's left from +Y, and the I read first. A plate whose photo
+    // and words read from different sides fails here even if each passes alone.
+    // The preset's foot is left off: it spreads the plate in Y and under the
+    // caption band, which moves the reference faces and not the handedness.
+    const card = gen.presets.find(pr => pr.name === 'Birthday card').values;
+    const half = img(64, 64, (x) => (x < 32 ? 1 : 0));
+    for (const style of ['raised', 'engraved', 'lit']) {
+      const r = gen.build({ ...defaults(gen), ...card, foot: false, pixelPitch: 1.0, image: half, edgeFade: 0, overhangGuard: false,
+                            caption: 'IW', captionStyle: style, captionHeight: 10 }, C);
+      const m = asMesh(r), b = m.bbox();
+      const zPic = b.max[2] - card.frameWidth - r.meta.picture.heightMM / 2;
+      const th = (u) => {   // from +Y, u mm to the viewer's right, which is world -X
+        const h = rayHits(m, [b.center[0] - u, b.max[1] + 300, zPic], [0, -1, 0]);
+        return h.length >= 2 ? h[1] - h[0] : NaN;
+      };
+      const photoOk = th(-15) < 1.0 && th(15) > 2.8;
+      const y0 = b.min[1], Tc = card.frameThickness, band = r.meta.caption.bandMM;
+      const ink = [];
+      for (let i = 0; i < m.vertCount; i++) {
+        const v = m.vertex(i), y = v[1] - y0;
+        if (v[2] >= band - 1e-9) continue;
+        if (style === 'raised' ? y > Tc + 1e-6 : y > 1e-6 && y < Tc - 1e-6) ink.push(Math.round(v[0] * 1e4) / 1e4);
+      }
+      const xs = [...new Set(ink)].sort((a, c) => a - c);
+      let gap = 0, at = 0;
+      for (let i = 1; i < xs.length; i++) if (xs[i] - xs[i - 1] > gap) { gap = xs[i] - xs[i - 1]; at = i; }
+      const lo = xs.slice(0, at), hi = xs.slice(at), w = (g) => g[g.length - 1] - g[0];
+      const textOk = lo.length > 1 && hi.length > 1 && w(hi) < w(lo);
+      check(`Birthday card, ${style}: photo and caption both read the right way round from the front (+Y)`,
+        photoOk && textOk, `photo left ${th(-15).toFixed(2)} / right ${th(15).toFixed(2)} mm; text ${textOk ? 'I then W' : 'W then I'}`);
+    }
   }
 
   // ---- refusals -----------------------------------------------------------
@@ -739,11 +854,22 @@ console.log('\n-- the caption --');
   }
 
   // ---- every style, every face, still a solid -----------------------------
+  // And no zero-area triangles, counted by analyze() as the analysis panel
+  // counts them. The caption's seams are closed by healTJunctions, whose plain
+  // fan left 294 on "Engraved keepsake"; isSolid() only sees a triangle with a
+  // repeated corner, so it passed all of them.
   for (const style of ['raised', 'engraved', 'lit']) {
     for (const font of ['LiberationSansNarrow-Regular', 'DejaVuSansMono', 'Quicksand-Bold']) {
-      isSolid(`"With love" set ${style} in ${font.split('-')[0]}`,
-        asMesh(cap({ caption: 'With love', captionStyle: style, captionFont: font })));
+      const m = asMesh(cap({ caption: 'With love', captionStyle: style, captionFont: font }));
+      isSolid(`"With love" set ${style} in ${font.split('-')[0]}`, m);
+      const d = analyze(m).degenerateTris;
+      check(`"With love" set ${style} in ${font.split('-')[0]}: no degenerate triangles`, d === 0, `${d} degenerate`);
     }
+  }
+  for (const pr of gen.presets.filter(pr => String(pr.values.caption ?? '').trim())) {
+    const a = analyze(asMesh(gen.build({ ...defaults(gen), ...pr.values }, C)));
+    check(`preset "${pr.name}": no degenerate triangles, as the analysis panel counts them`,
+      a.degenerateTris === 0 && a.watertight, `${a.degenerateTris} degenerate, watertight ${a.watertight}`);
   }
   check('a character the face does not have is dropped and named',
     gen.validate({ ...base, caption: 'Happy 😀 day' })

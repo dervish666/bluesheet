@@ -132,6 +132,108 @@ check('triangulate is deterministic', JSON.stringify(triangulate([SQ])) === JSON
 const bigT = Date.now(), bigTri = triangulate([superformula({ preset: 'flower6', r: 40, segs: 2000 })]);
 check('triangulate 2000 vertices in under 500 ms', Date.now() - bigT < 500, `${Date.now() - bigT} ms, ${bigTri.tris.length / 3} triangles`);
 
+// ---- no zero-area triangles -------------------------------------------------
+// The ear clipper used to take any ear with tri2 > 0, so three cap vertices in a
+// line to within rounding became a triangle of ~1e-15 mm², which the analysis
+// panel counts as degenerate. A sliver here is the panel's own definition
+// (area <= 1e-10 mm², validate.js analyze()), deliberately not the kernel's
+// tolerance. "Every vertex used" is the T-junction check: a cap that skips a
+// ring vertex leaves the extrusion's wall edges at that vertex unmatched.
+// "n + 2h - 2 triangles" is Euler's count for a triangulation of n vertices and
+// h holes with no T-junction and no overlap.
+function sliverAudit(shape) {
+  const t0 = Date.now();
+  const { points, tris } = triangulate(shape);
+  const ms = Date.now() - t0;
+  let sum = 0, slivers = 0;
+  for (let t = 0; t < tris.length; t += 3) {
+    const a = points[tris[t]], b = points[tris[t + 1]], c = points[tris[t + 2]];
+    const s = ((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])) / 2;
+    sum += s;
+    if (!(Math.abs(s) > 1e-10)) slivers++;
+  }
+  const unused = points.length - new Set(tris).size;
+  const euler = points.length + 2 * (shape.length - 1) - 2;
+  return { sum, slivers, unused, count: tris.length / 3, euler, ms };
+}
+const SLIVER_CASES = [
+  // A rotated strip out of union(), top and bottom edges subdivided: collinear
+  // to within rounding. Old clipper: 3 slivers. Without the flat-ear threshold
+  // the edge flips alone still leave 1.
+  ['rotated strip with collinear runs', [[[-4.8336905390024185, 3.006267696619034], [-2.421497955918312, 3.6149655282497406],
+    [-1.8181174732744694, 3.6162948682904243], [-1.2147369906306267, 3.617624208331108], [-0.6113565117120743, 3.618953548371792],
+    [-0.007976032793521881, 3.6202828884124756], [-0.010634712874889374, 4.82704384624958], [-0.6140151917934418, 4.825714509934187],
+    [-1.2173956707119942, 4.8243851736187935], [-1.8207761533558369, 4.82305583357811], [-2.4241566359996796, 4.821726493537426],
+    [-3.027537114918232, 4.820397153496742], [-3.6309175938367844, 4.8190678134560585]]]],
+  // A 30 x 20 rectangle, each side cut into six, turned 0.7 rad and moved off
+  // the origin. Old clipper: 8 slivers.
+  ['rotated subdivided rectangle', [transformRing(
+    [0, 1, 2, 3].flatMap(k => { const c = [[0, 0], [30, 0], [30, 20], [0, 20]], p = c[k], q = c[(k + 1) % 4];
+      return [0, 1, 2, 3, 4, 5].map(i => [p[0] + (q[0] - p[0]) * i / 6, p[1] + (q[1] - p[1]) * i / 6]); }),
+    { rot: 0.7 }).map(([x, y]) => [x + 120, y - 45])]],
+  // A hole whose top edge has an exactly collinear middle vertex (from
+  // terrain's "Snowdon flooded to 400 m" lake outline). Old clipper: that vertex
+  // dropped, a T-junction. Without the fallback the same; without the flips, a
+  // zero-area triangle.
+  ['hole with an exactly collinear vertex', [[[-12, 0], [0, 0], [0, 6], [-12, 6]], [[-8, 2], [-9, 5], [-8, 5]],
+    [[-6.5, 1], [-7.5, 4], [-7, 4], [-6, 4]]]],
+  // A vertex lying on a would-be diagonal (qrplaque: QR modules meeting corner
+  // to corner put four vertices on one 45° line). Old clipper: 2 slivers, and
+  // the edge flips cannot remove them, because the diagonal through the vertex
+  // is itself a T-junction inside the cap.
+  ['vertex on a diagonal', [[[0, 0], [1, 0], [2, 2], [4, 2], [5, 6], [3, 3], [1, 3], [1, 1], [-6, 2]]
+    .map(([x, y]) => [-14.932432432432432 + x * 1.7567567567567568, -2.055405405405402 + y * 1.7567567567567568])]],
+  // Ring order puts the clean ear (2,0)-(1,1)-(0,0) first, and clipping it
+  // would leave (0,0)-(1,-1e-12)-(2,0), a remainder whose only ear is flat.
+  ['quad whose clean ear leaves a sliver', [[[0, 0], [1, -1e-12], [2, 0], [1, 1]]]],
+  ['quad with an exactly collinear vertex', [[[0, 0], [1, 0], [2, 0], [1, 1]]]],
+];
+for (const [name, shape] of SLIVER_CASES) {
+  const a = sliverAudit(shape);
+  near(`no slivers, ${name}: area is exact`, a.sum, shapeArea(shape), 1e-9);
+  check(`no slivers, ${name}: no zero-area triangle`, a.slivers === 0, `${a.slivers} of ${a.count}`);
+  check(`no slivers, ${name}: every vertex used, n + 2h - 2 triangles`, a.unused === 0 && a.count === a.euler,
+        `${a.unused} unused, ${a.count} triangles, want ${a.euler}`);
+}
+// The invariant behind every check above: each ring vertex is a corner of at
+// least one cap triangle. A vertex the cap skips is one the extrusion's walls
+// still use, so the cap meets them at a T-junction, which is a leak where a
+// flat triangle is only a warning. A copy at exactly the same position counts
+// as used: mesh.weld() merges the two.
+function unusedPositions(points, tris) {
+  const used = new Set();
+  for (const i of tris) used.add(points[i][0] + ',' + points[i][1]);
+  return points.filter(p => !used.has(p[0] + ',' + p[1])).length;
+}
+for (const [name, shape] of [
+  ...SLIVER_CASES,
+  // A ring that is nearly one line: no clean triangle exists. The old kernel
+  // used every vertex through two slivers; dropping the unflippable zero-area
+  // ear (0,0)-(1,0)-(2,0) instead left (1,0) out of the cap.
+  ['a nearly straight ring', [[[0, 0], [1, 0], [2, 0], [3, 1e-10]]]],
+  // A hole bridged along the outer ring's own collinear edge (0,5)-(1,5)-(2,5):
+  // filtering the bridge dropped (1,5), at HEAD as well.
+  ['a hole bridged along a collinear edge', [[[0, 0], [10, 0], [10, 10], [0, 10], [0, 5], [1, 5], [2, 5], [2, 4], [0, 4]],
+    [[4, 5], [4, 7], [6, 5]]]],
+  // A triangle with a zero-area spike out to (-3,-2) and back, the shape
+  // union() hands back for squares meeting at a corner. The spike's tip has no
+  // clean triangle; filterENodes used to drop it.
+  ['a ring with a zero-area spike', [[[0, 0], [4, 0], [2, 3], [0, 0], [-3, -2]]]],
+]) {
+  const { points, tris } = triangulate(shape);
+  const n = unusedPositions(points, tris);
+  check(`every ring vertex is in a triangle: ${name}`, n === 0, `${n} of ${points.length} unused`);
+}
+{
+  // Every ear is flat from the first lap: there is no clean triangulation, and
+  // the loop must still finish and cover the ring rather than escalate into
+  // splitEarcut, which used to give up and return nothing.
+  const a = sliverAudit([[[0, 0], [1, -1e-12], [2, -1.5e-12], [3, 0], [1.5, 1e-12]]]);
+  check('a ring whose only ears are flat still triangulates: every vertex, n - 2 triangles',
+    a.unused === 0 && a.count === 3, `${a.count} triangles, ${a.unused} unused`);
+  check('a ring whose only ears are flat terminates quickly', a.ms < 50, `${a.ms} ms`);
+}
+
 // ---------------------------------------------------------------------------
 console.log('\n-- booleans (G5) --');
 
@@ -445,7 +547,7 @@ check('fuzz: the case set is reproducible from its seed',
       `seed ${SEED}, ${cases.length} cases, first ring ${cases[0].shape[0].length} points`);
 
 const CLIP = rect(18, 12, { cx: 2, cy: 1 });
-let threw = 0, nonFinite = 0, misoriented = 0, areaOff = 0, worstArea = 0, empties = 0, ops = 0;
+let threw = 0, nonFinite = 0, misoriented = 0, areaOff = 0, worstArea = 0, empties = 0, ops = 0, unusedVerts = 0;
 let firstFailure = null;
 const t0 = Date.now();
 
@@ -465,6 +567,7 @@ for (const { shape, simple, family } of cases) {
       const err = Math.abs(sum - want);
       if (err > worstArea) worstArea = err;
       if (err > Math.max(1e-9, want * 1e-12)) { areaOff++; firstFailure = firstFailure || `triangulated area off by ${err}`; }
+      unusedVerts += unusedPositions(points, tris);
     }
 
     for (const d of [0.6, -0.6, 2.5]) {
@@ -493,6 +596,7 @@ check('fuzz: 500 seeded polygons complete without throwing', threw === 0,
 check('fuzz: no NaN or infinite coordinate in any result', nonFinite === 0, `${nonFinite} non-finite results`);
 check('fuzz: every returned ring is wound correctly (outer CCW, holes CW)', misoriented === 0,
       `${misoriented} misoriented, ${empties} legitimately empty offsets`);
+check('fuzz: every vertex of the simple families is in a triangle', unusedVerts === 0, `${unusedVerts} unused`);
 check('fuzz: triangulated area matches the shape area for the simple families', areaOff === 0,
       `${areaOff} mismatches, worst ${worstArea.toExponential(2)} mm²`);
 

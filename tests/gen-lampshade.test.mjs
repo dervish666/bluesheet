@@ -42,7 +42,15 @@ function rayHits(mesh, o, d) {
     const e2 = [p[ic] - p[ia], p[ic + 1] - p[ia + 1], p[ic + 2] - p[ia + 2]];
     const pv = [dir[1] * e2[2] - dir[2] * e2[1], dir[2] * e2[0] - dir[0] * e2[2], dir[0] * e2[1] - dir[1] * e2[0]];
     const det = e1[0] * pv[0] + e1[1] * pv[1] + e1[2] * pv[2];
-    if (Math.abs(det) < 1e-12) continue;
+    // Skip a face the ray runs along. det is d·(e2×e1), so |det| / |e1×e2| is
+    // the sine of the angle between the ray and the face. The absolute cutoff
+    // alone lets rounding through on a big face in the ray's own plane: the
+    // stave end caps at 55° are such faces (125-167 mm long) once the ear
+    // clipper stopped cutting them into slivers, and their "hits" landed
+    // outside the outer wall. The relative one alone lets through a
+    // zero-area face, whose |e1×e2| is rounding too. Either one means parallel.
+    const nx = e1[1] * e2[2] - e1[2] * e2[1], ny = e1[2] * e2[0] - e1[0] * e2[2], nz = e1[0] * e2[1] - e1[1] * e2[0];
+    if (Math.abs(det) < 1e-12 || Math.abs(det) < 1e-9 * Math.hypot(nx, ny, nz)) continue;
     const inv = 1 / det;
     const tv = [o[0] - p[ia], o[1] - p[ia + 1], o[2] - p[ia + 2]];
     const u = (tv[0] * pv[0] + tv[1] * pv[1] + tv[2] * pv[2]) * inv;

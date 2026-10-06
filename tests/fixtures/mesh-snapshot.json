@@ -220,7 +220,7 @@
   ]
  },
  "gridfinity/preset:2×2 baseplate": {
-  "hash": "2f3f568e6f09794a",
+  "hash": "f09aa39949023b9a",
   "tris": 1524,
   "verts": 756,
   "vol": 5724.224056,
@@ -253,7 +253,7 @@
   ]
  },
  "gridfinity/preset:Weighted 3×2 baseplate": {
-  "hash": "186cf90f02e42ddb",
+  "hash": "0c1d654d654ca21c",
   "tris": 4528,
   "verts": 2266,
   "vol": 32781.795635,
@@ -1034,7 +1034,7 @@
   ]
  },
  "nameplate/<defaults>": {
-  "hash": "edf669aef21a97eb",
+  "hash": "84ea30e1b182ca4d",
   "tris": 1572,
   "verts": 788,
   "vol": 5256.30858,
@@ -1056,7 +1056,7 @@
   ]
  },
  "nameplate/preset:Keyring tag": {
-  "hash": "ddd06cdd24150af0",
+  "hash": "e2ea870c83671f7e",
   "tris": 2588,
   "verts": 1294,
   "vol": 2468.112934,
@@ -1067,7 +1067,7 @@
   ]
  },
  "nameplate/preset:Drawer label": {
-  "hash": "16e9e962b275558a",
+  "hash": "4e4a139ec4abae21",
   "tris": 1264,
   "verts": 634,
   "vol": 1786.185599,
@@ -1155,7 +1155,7 @@
   ]
  },
  "lithophane/preset:E27 pendant shade": {
-  "hash": "02fb1ac02a9dd937",
+  "hash": "3a1b21ba23a71245",
   "tris": 293744,
   "verts": 146864,
   "vol": 118963.972705,
@@ -1166,7 +1166,7 @@
   ]
  },
  "lithophane/preset:E27 table lamp shade": {
-  "hash": "83944426e389ee5c",
+  "hash": "e0538afe4c008a81",
   "tris": 293672,
   "verts": 146828,
   "vol": 129403.35078,
@@ -1199,9 +1199,9 @@
   ]
  },
  "lithophane/preset:Engraved keepsake": {
-  "hash": "6b1c56ca291f35b0",
-  "tris": 167482,
-  "verts": 83741,
+  "hash": "6fda0457027e6a3c",
+  "tris": 167434,
+  "verts": 83717,
   "vol": 38117.858512,
   "bbox": [
    116,
@@ -1232,7 +1232,7 @@
   ]
  },
  "terrain/<defaults>": {
-  "hash": "8242cde9b6a2d649",
+  "hash": "8c8786103c406e39",
   "tris": 42008,
   "verts": 21006,
   "vol": 89479.501687,
@@ -1243,7 +1243,7 @@
   ]
  },
  "terrain/preset:Snowdon on the mantelpiece": {
-  "hash": "2ecd46aab418fdc9",
+  "hash": "80085d4afb125694",
   "tris": 64000,
   "verts": 32002,
   "vol": 283093.039484,
@@ -1254,7 +1254,7 @@
   ]
  },
  "terrain/preset:Avon Gorge wall map, first of four": {
-  "hash": "ca2aa2753cd471fe",
+  "hash": "891c14da4f14b752",
   "tris": 55048,
   "verts": 27526,
   "vol": 100033.578327,
@@ -1265,7 +1265,7 @@
   ]
  },
  "terrain/preset:Cheddar Gorge paperweight": {
-  "hash": "13cb1342ee6d9f5b",
+  "hash": "48a3d23dc7600769",
   "tris": 68340,
   "verts": 34172,
   "vol": 142371.673856,
@@ -1276,7 +1276,7 @@
   ]
  },
  "terrain/preset:Snowdon flooded to 400 m": {
-  "hash": "ce4839ac73b9f66d",
+  "hash": "461f0c37cf4e9a91",
   "tris": 52436,
   "verts": 26220,
   "vol": 146041.597426,
@@ -1408,7 +1408,7 @@
   ]
  },
  "datasculpt/preset:A year on your wrist": {
-  "hash": "6e04edd49b815a7d",
+  "hash": "3cc5dd269b3d658d",
   "tris": 11672,
   "verts": 5836,
   "vol": 27138.601478,
@@ -1430,7 +1430,7 @@
   ]
  },
  "datasculpt/preset:Four seasons, side by side": {
-  "hash": "5e16b1cd373e8203",
+  "hash": "1add0e1cdc02e522",
   "tris": 73454,
   "verts": 36729,
   "vol": 56043.904069,
@@ -1463,7 +1463,7 @@
   ]
  },
  "qrplaque/<defaults>": {
-  "hash": "5a3657919c6dbd02",
+  "hash": "b60575e8d3748df9",
   "tris": 3904,
   "verts": 2090,
   "vol": 13067.368193,
@@ -1474,7 +1474,7 @@
   ]
  },
  "qrplaque/preset:Guest Wi-Fi": {
-  "hash": "ae632ba745a4c394",
+  "hash": "785468c75e90a59a",
   "tris": 4036,
   "verts": 2154,
   "vol": 14115.163561,
@@ -1485,7 +1485,7 @@
   ]
  },
  "qrplaque/preset:Link coaster": {
-  "hash": "ef3d53550ae52aa9",
+  "hash": "dc1e8b5f96f91975",
   "tris": 3032,
   "verts": 1424,
   "vol": 17504.074125,
@@ -1496,7 +1496,7 @@
   ]
  },
  "qrplaque/preset:Text tag": {
-  "hash": "3b808b32b573f430",
+  "hash": "2c2acdd4f9f561a3",
   "tris": 2516,
   "verts": 1358,
   "vol": 2985.195136,
@@ -1529,7 +1529,7 @@
   ]
  },
  "coaster/preset:Hex drinks mat": {
-  "hash": "7d6dc6bd8b9a797d",
+  "hash": "7a816512f27dc412",
   "tris": 836,
   "verts": 420,
   "vol": 20311.530046,
@@ -1551,7 +1551,7 @@
   ]
  },
  "coaster/preset:Engraved gift coaster": {
-  "hash": "10ae0339732d1e07",
+  "hash": "0bc95a6a754b2869",
   "tris": 3084,
   "verts": 1544,
   "vol": 32677.190408,

@@ -1420,7 +1420,7 @@ const gen = {
     // depths, and where the text clear-zone cuts a groove, the pocket wall gains
     // a point the surrounding cap does not have. That leaves a T-junction: both
     // sides correct, the seam open. This closes it without moving anything.
-    if (out && out.mesh) out.mesh = out.mesh.healTJunctions();
+    if (out && out.mesh) out.mesh = out.mesh.healTJunctions(1e-5, { clean: true });
     return out;
   },
 

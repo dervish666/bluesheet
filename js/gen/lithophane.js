@@ -162,10 +162,12 @@ const MOUNTS = ['pendant', 'table'];
 //   lit       a deep pocket in the BACK, leaving no more material than the
 //             brightest part of the picture has. In reflected light the frame
 //             looks blank; hold it up and the message comes on with the
-//             photograph. Its ink is MIRRORED, because it is read through the
-//             panel — the same reason the arc-in shape mirrors its picture, and
-//             the same mistake if it is forgotten: a mesh that looks perfect
-//             from the front and prints back to front.
+//             photograph.
+//
+// All three are read from the front (+Y), and from there world +X is the
+// viewer's left, so all three lay their ink down mirrored in X. A mesh that
+// looks right in a viewer camera sitting at -Y prints back to front, which is
+// what raised and engraved captions did until 2026-10-06.
 //
 // The band the text sits in is measured from the laid-out text rather than
 // predicted from the cap height, so a second line and a descender both get the
@@ -234,6 +236,34 @@ function dropSpecks(shapes) {
     out.push([s[0], ...s.slice(1).filter(r => r.length >= 3 && ringArea(r) >= MIN_RING_AREA)]);
   }
   return out;
+}
+
+/**
+ * Drop outline points that sit on the straight line through their neighbours.
+ * A font's straight stroke can arrive as several points in a row (a quadratic
+ * whose control point is on the line, flattened), and the face triangulation
+ * then clips an "ear" through three of them: a triangle with no area, which
+ * the analysis panel counts as degenerate. The walls and faces are both built
+ * from these rings, so dropping the points moves nothing.
+ */
+function straighten(shapes) {
+  const TOL = 1e-7;   // mm off the chord; the ones found were 1e-15
+  const clean = (r) => {
+    let pts = r.slice(), changed = true;
+    while (changed && pts.length > 3) {
+      changed = false;
+      for (let i = 0; i < pts.length && pts.length > 3; i++) {
+        const a = pts[(i + pts.length - 1) % pts.length], b = pts[i], c = pts[(i + 1) % pts.length];
+        const ex = c[0] - a[0], ey = c[1] - a[1], len = Math.hypot(ex, ey);
+        const off = len > 0 ? Math.abs(ex * (b[1] - a[1]) - ey * (b[0] - a[0])) / len : 0;
+        // On the chord and between its ends: a pass-through point, not a spike.
+        const t = len > 0 ? ((b[0] - a[0]) * ex + (b[1] - a[1]) * ey) / (len * len) : 0;
+        if (off < TOL && t > 0 && t < 1) { pts.splice(i, 1); changed = true; i--; }
+      }
+    }
+    return pts;
+  };
+  return shapes.map(s => s.map(clean));
 }
 
 function ringBox(ring) {
@@ -345,9 +375,14 @@ function captionFor(p, o) {
   const band = Math.max(0, box.size[1] + 2 * CAP_PAD - o.frameW);
   const mid = o.z0 + (o.frameW + band) / 2;
   const dx = -box.center[0], dz = mid - box.center[1];
-  let ink = unionInk(shiftShapes(lay.shapes, dx, dz));
+  let ink = straighten(unionInk(shiftShapes(lay.shapes, dx, dz)));
   if (!ink.length) return none('ink');
-  if (style === 'lit') ink = mirrorShapes(ink);
+  // Every style is read from the front of the plate, the +Y face the raised
+  // letters stand on and the lit pocket is hidden behind. Seen from +Y the
+  // world's +X runs to the viewer's LEFT, so text laid out along +X reads
+  // backwards there: all three styles are mirrored. Until 2026-10-06 only lit
+  // was, and raised and engraved captions printed back to front.
+  ink = mirrorShapes(ink);
 
   // How far in, or out. Each style keeps its own number so that switching
   // between them does not silently reinterpret a depth as a height.
@@ -698,14 +733,19 @@ function solveFresh(p, ctx, sf) {
   // ---- mirroring -----
   // Which way round a lithophane reads depends on the side it is LOOKED AT
   // from, not on which face carries the relief: transmitted light sees only
-  // thickness. The shade is looked at from outside and reads unmirrored on
-  // either face (see SIDES); it was flipped here until 2026-10-04 on the theory
-  // that a relief on the far face reads back to front, and the test with a
-  // half-white picture showed every wall back to front from outside. arc-in
-  // keeps its flip untouched by that change; it was argued the same way and has
-  // not been re-derived.
+  // thickness. "auto" puts picture column 0 on the viewer's left from each
+  // shape's viewing side:
+  //   arcs and shades  from outside. Built that way already, so no flip. They
+  //                    used to flip arc-in and the shade on the theory that a
+  //                    relief on the far face reads back to front; rays from
+  //                    the viewer showed both backwards (2026-10-04, -06).
+  //   flat plate       from the relief face (+Y), where the caption is and
+  //                    the frame's front is: Sam's ruling, 2026-10-06. Seen
+  //                    from +Y world +X runs to the viewer's LEFT, so the flat
+  //                    grid is laid down mirrored, exactly as the captions are.
+  // "on" and "off" set the grid's flip by hand, whatever the shape.
   const mirrorMode = ['auto', 'on', 'off'].includes(p.mirror) ? p.mirror : 'auto';
-  const mirror = mirrorMode === 'on' || (mirrorMode === 'auto' && shape === 'arc-in');
+  const mirror = mirrorMode === 'on' || (mirrorMode === 'auto' && shape === 'flat');
   const reliefFace = shape === 'shade' ? (p.reliefFace === 'inside' ? 'inside' : 'outside') : null;
 
   const filter = FILTERS[p.filter] ? p.filter : 'lanczos';
@@ -1272,7 +1312,7 @@ function buildFlat(g) {
     // words in the rounded one were watertight, which is exactly the kind of
     // defect that ships because the preset you looked at happened to be fine.
     // The kernel has the fix; the QR plaque calls it for the same reason.
-    m = m.weld(1e-7).healTJunctions();
+    m = m.weld(1e-7).healTJunctions(1e-5, { clean: true });
   }
 
   return m;
@@ -1786,7 +1826,7 @@ const params = [
     help: 'How the photograph is reduced to the print grid. All three are real filters; none of them point-sample.' },
   { key: 'mirror', label: 'Mirror', type: 'enum', def: 'auto', group: 'Picture',
     options: [
-      { v: 'auto', label: 'Automatic', help: 'Flipped for the inward curve. The shade reads the right way round from outside without a flip, whichever face carries its relief.' },
+      { v: 'auto', label: 'Automatic', help: 'Reads the right way round from where it is meant to be seen: a flat plate from its relief face, the side the caption is on; curves and shades from outside, whichever face carries their relief.' },
       { v: 'off', label: 'Never' }, { v: 'on', label: 'Always' },
     ],
     help: 'For a picture that reads back to front from where you will stand. Which way round it reads depends on the side you look from, not on which face the relief is on.' },
@@ -1816,7 +1856,7 @@ const params = [
 
   { key: 'shape', label: 'Shape', type: 'enum', def: 'flat', group: 'Shape',
     options: [
-      { v: 'flat', label: 'Flat plate', help: 'Hangs in a window or slots into a stand. Prints standing on its bottom edge.' },
+      { v: 'flat', label: 'Flat plate', help: 'Hangs in a window or slots into a stand, relief side to the room. Prints standing on its bottom edge.' },
       { v: 'arc-out', label: 'Curved outward', help: 'A cylindrical section with the picture on the outside. Stands up on its own and does not warp.' },
       { v: 'arc-in', label: 'Curved inward (lamp)', help: 'The picture is on the concave face, protected, with the lamp behind it.' },
       { v: 'shade', label: 'Four-sided shade', help: 'A square lamp shade with a picture on each face.' },
@@ -1934,7 +1974,7 @@ const params = [
     options: [
       { v: 'raised', label: 'Raised', help: 'Letters standing off the front of the frame. Legible in any light.' },
       { v: 'engraved', label: 'Engraved', help: 'A shallow pocket in the front. Reads as a shadow, and takes ink or paint well.' },
-      { v: 'lit', label: 'Lit from behind', help: 'Cut deep into the BACK, leaving a picture-thin skin. The frame looks blank until you hold it to the light, then the message comes on with the photograph. Mirrored automatically, because you read it through the panel.' },
+      { v: 'lit', label: 'Lit from behind', help: 'Cut deep into the BACK, leaving a picture-thin skin. The frame looks blank until you hold it to the light, then the message comes on with the photograph. Laid out to read the right way round from the front, like the other two styles.' },
     ],
     showIf: (p) => (p.shape ?? 'flat') === 'flat' && !!String(p.caption ?? '').trim() },
   { key: 'captionFont', label: 'Typeface', type: 'enum', def: DEFAULT_FONT, group: 'Caption',
@@ -2262,11 +2302,12 @@ function hints(p) {
     } else if (c.style === 'engraved') {
       notes.push(`The message is a ${c.depth.toFixed(1)} mm pocket in the front. The ceiling over each letter is unsupported for that depth; at this size it bridges cleanly. If you want it to read from across the room, a wipe of acrylic paint over the frame and a wipe off the high surface fills the letters and nothing else.`);
     } else {
-      notes.push(`The message is cut into the BACK, leaving ${c.glow.toFixed(2)} mm of skin in front of it — about ${(c.glow / 0.42).toFixed(1)} extrusions, the same order as the brightest part of the picture. Do not let the slicer add top or bottom solid layers here either: the whole effect is that skin, and a solid layer laid across it is what makes a lit caption come out grey instead of bright. The letters are mirrored in the mesh so they read the right way round from the front.`);
+      notes.push(`The message is cut into the BACK, leaving ${c.glow.toFixed(2)} mm of skin in front of it — about ${(c.glow / 0.42).toFixed(1)} extrusions, the same order as the brightest part of the picture. Do not let the slicer add top or bottom solid layers here either: the whole effect is that skin, and a solid layer laid across it is what makes a lit caption come out grey instead of bright. The letters are laid out to read the right way round from the front, the face without the pocket.`);
     }
     if (c.lines > 1) notes.push(`${c.lines} lines of caption. The bottom border grew to ${(g.frameW + c.band).toFixed(1)} mm to hold them, which is also ${((g.frameW + c.band) / layerH).toFixed(0)} layers of plain frame before the picture starts.`);
   }
-  if (g.mirror) notes.push('The picture is mirrored, because on this shape you look at it through the smooth face. That is deliberate; it will read the right way round in the light.');
+  if (g.shape === 'flat' && g.mirror && g.mirrorMode === 'auto') notes.push('The front is the relief face, the side the caption is on. Hang it with that side towards the room and the light behind the smooth back; the picture reads the right way round from the front and back to front from behind.');
+  else if (g.mirrorMode !== 'auto') notes.push(`Mirroring is set by hand (${g.mirrorMode}), so the picture may read back to front from the side this shape is meant to be seen from.`);
   if (g.grid.uniform) notes.push('This picture is one flat tone, so what you are about to print is a blank plate.');
 
   return {
