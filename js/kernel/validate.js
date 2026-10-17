@@ -814,9 +814,21 @@ export function faceOverhangs(mesh, { maxOverhang = 50, layerH = 0.2, plateTol =
  * The alternative — a medial axis or a voxel distance field — is both slower and
  * harder to explain; a ray from the middle of a face is exactly the measurement
  * a caliper would take, and it is bounded (`probe`) so convex solids cost nothing.
+ *
+ * The raw minimum is not the headline. A face beside a crease fires its ray into
+ * the face across the corner and reads a fraction of the wall: the drawer's
+ * 1.6 mm walls have a 0.40 mm minimum. So the headline is `p05`, the thickness
+ * that 5 % of the surface (by area) is thinner than, worked out for each body on
+ * its own and reported as the worst body's figure, so a thin part sharing the
+ * plate with a thick one is not averaged away. A face whose ray left the probe
+ * counts as thicker than `probe`; a body most of whose surface does that has
+ * `p05: null`. `minThickness` is still the raw minimum and the thin-wall
+ * clusters still come from the raw per-face values, because a small real thin
+ * region should warn even when it is under 5 % of the surface.
  */
 export function wallThickness(mesh, {
   minFeature = 0.8, weldEps = WELD_EPS, maxSamples = 8000, probe = null, grid = null, edgeMap = null,
+  quantile = 0.05,
 } = {}) {
   const w = weldedOf(asMesh(mesh), weldEps);
   const T = w.triCount;
@@ -828,11 +840,10 @@ export function wallThickness(mesh, {
   const partner = new Int32Array(T).fill(-1);
   const thin = new Uint8Array(T);
   const c = [0, 0, 0], dir = [0, 0, 0];
+  const sampled = new Uint8Array(T);
   let measured = 0, thinArea = 0, sampledArea = 0, totalArea = 0, minThickness = Infinity;
-  for (let t = 0; t < T; t++) {
-    const area = w.triArea(t);
-    totalArea += area;
-    if (t % stride !== 0 || !(area > 0)) continue;
+  const sample = (t, area) => {
+    sampled[t] = 1;
     sampledArea += area;
     const n = w.faceNormal(t);
     triCentroid(w, t, c);
@@ -843,12 +854,41 @@ export function wallThickness(mesh, {
     const o = [c[0] + dir[0] * off, c[1] + dir[1] * off, c[2] + dir[2] * off];
     const hit = rayMeshHit(g, o, dir, { maxT: reach, skip: t });
     measured++;
-    if (!hit) continue;
+    if (!hit) return;
     const th = hit.t + off;
     thickness[t] = th;
     partner[t] = hit.tri;
     if (th < minThickness) minThickness = th;
     if (th < minFeature) { thin[t] = 1; thinArea += area; }
+  };
+  for (let t = 0; t < T; t++) {
+    const area = w.triArea(t);
+    totalArea += area;
+    if (t % stride === 0 && area > 0) sample(t, area);
+  }
+  const sh = shellsOf(w, { weldEps, welded: w });
+  // On a large mesh the stride can step over every face of a small body, and a
+  // body nobody measured cannot report a p05. Give each such body its own
+  // stride. Bodies the main pass reached keep exactly the faces they had.
+  if (stride > 1) {
+    const reached = new Uint8Array(sh.count);
+    for (let t = 0; t < T; t++) if (sampled[t]) reached[sh.labels[t]] = 1;
+    const seen = new Int32Array(sh.count);
+    for (let t = 0; t < T; t++) {
+      const b = sh.labels[t];
+      if (reached[b]) continue;
+      const area = w.triArea(t);
+      if (seen[b]++ % stride === 0 && area > 0) sample(t, area);
+    }
+  }
+  const bodies = thicknessQuantiles(w, sh, thickness, sampled, quantile);
+  let p05 = null, p05Body = -1;
+  for (let i = 0; i < bodies.length; i++) {
+    const b = bodies[i];
+    // The same floor the clusters use: a body under one extrusion's footprint
+    // is litter (the shell report names it), not a wall.
+    if (b.area < 0.25 || b.p05 === null) continue;
+    if (p05 === null || b.p05 < p05) { p05 = b.p05; p05Body = i; }
   }
   // Group neighbouring thin faces into walls: "3 walls are 0.6 mm thick" is a
   // sentence somebody can act on; "412 thin triangles" is not.
@@ -900,8 +940,33 @@ export function wallThickness(mesh, {
     thickness, thin, partner, clusters: stride === 1 ? clusters : null,
     thinArea: stride === 1 ? thinArea : thinArea / Math.max(coverage, 1e-6),
     minThickness: Number.isFinite(minThickness) ? minThickness : null,
+    p05, p05Body, bodies, quantile,
     measured, sampled: stride > 1, coverage, probe: reach, minFeature,
   };
+}
+
+/**
+ * Area-weighted quantile of the measured face thicknesses, one per shell. Each
+ * measured face stands for its own area, so a crease's slivers carry the few
+ * square millimetres they cover and no more. Ties are broken by face index, so
+ * the answer is the same on every run.
+ */
+function thicknessQuantiles(w, sh, thickness, sampled, q) {
+  const lists = sh.shells.map(() => []);
+  for (let t = 0; t < sh.labels.length; t++) if (sampled[t]) lists[sh.labels[t]].push(t);
+  return lists.map((faces) => {
+    let area = 0, min = Infinity;
+    for (const t of faces) { area += w.triArea(t); if (thickness[t] < min) min = thickness[t]; }
+    faces.sort((a, b) => (thickness[a] - thickness[b]) || (a - b));
+    let at = Infinity, run = 0;
+    const want = q * area;
+    for (const t of faces) {
+      run += w.triArea(t);
+      if (run >= want) { at = thickness[t]; break; }
+    }
+    return { samples: faces.length, area, p05: Number.isFinite(at) ? at : null,
+             min: Number.isFinite(min) ? min : null };
+  });
 }
 
 /**
@@ -1420,6 +1485,7 @@ export function printability(mesh, opts = {}) {
     height, layers, bbox,
     overhangArea: 0, overhangPct: 0, worstOverhangDeg: 0,
     thinWallArea: 0, thinWalls: [], minThickness: null,
+    p05Thickness: null, thicknessBodies: [], thicknessChecked: false, thicknessProbe: null,
     unsupportedIslands: 0, islands: [], bridges: [], maxBridgeSpan: 0,
     estVolumeCm3: volume / 1000, estGrams: est.grams, estMetres: est.metres,
     material: est.material, density: est.density, surfaceAreaCm2: area / 100,
@@ -1446,7 +1512,14 @@ export function printability(mesh, opts = {}) {
   if (checkThickness) {
     const wt = wallThickness(w, { minFeature, weldEps, grid, edgeMap: em });
     base.thinWallArea = wt.thinArea;
+    // minThickness is the raw per-face minimum and only describes the clusters
+    // it came from; p05Thickness is the figure to show anyone (wallThickness()
+    // says why). null p05 with thicknessChecked means thicker than the probe.
     base.minThickness = wt.minThickness;
+    base.p05Thickness = wt.p05;
+    base.thicknessBodies = wt.bodies;
+    base.thicknessChecked = true;
+    base.thicknessProbe = wt.probe;
     base.thinWalls = wt.clusters || [];
     base.thicknessSampled = wt.sampled;
   }

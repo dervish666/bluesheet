@@ -212,8 +212,9 @@ console.log('\n-- the shade itself --');
 // 0.80 mm band at the top of a 1.2 mm shade.
 //
 // A note for whoever reads the analysis panel next: its "thinnest wall" figure
-// under-reports at every crease in this codebase — vase shows 0.34 mm on a 2 mm
-// wall and drawer 0.40 on 1.6 — so it is not the instrument for this question.
+// is p05 over the whole surface (the raw minimum read 0.40 on the drawer's
+// 1.6 mm walls at the creases), so a narrow thin band like this one can sit
+// under it unseen. It is not the instrument for this question.
 {
   const s = set();
   const g = geometry(s);

@@ -11,7 +11,7 @@
 // time is a measurement of the object like its volume is.
 
 import { el, clear } from './dom.js';
-import { mm, size3, cm3, grams, count, pct, deg, duration, cost, materialName } from './format.js';
+import { mm, size3, cm3, grams, count, pct, deg, duration, cost, materialName, thinnestWall } from './format.js';
 
 const SEVERITY_RANK = { error: 0, warn: 1, warning: 1, info: 2 };
 
@@ -63,9 +63,8 @@ export class AnalysisColumn {
         rows.push(['Overhang', `${pct(p.overhangPct)} · worst ${deg(p.worstOverhangDeg)}`,
           p.worstOverhangDeg > p.maxOverhang ? 'warn' : null]);
       }
-      if (Number.isFinite(p.minThickness) && p.minThickness !== null) {
-        rows.push(['Thinnest wall', `${mm(p.minThickness)} mm`,
-          p.minThickness < p.minFeature ? 'warn' : null]);
+      if (p.thicknessChecked) {
+        rows.push(thinnestWall(p.p05Thickness, { probe: p.thicknessProbe, minFeature: p.minFeature }));
       }
       if (p.unsupportedIslands) rows.push(['Islands', count(p.unsupportedIslands), 'warn']);
       if (p.maxBridgeSpan > 0.5) rows.push(['Longest bridge', `${mm(p.maxBridgeSpan)} mm`, null]);
