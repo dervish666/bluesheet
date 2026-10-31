@@ -16,6 +16,18 @@ export function mm(v, dp = null) {
   return v.toFixed(dp === null ? dpFor(v) : dp);
 }
 
+/**
+ * The thinnest-wall fact as [label, value, tone]. It shows p05, the thickness 5 %
+ * of the surface is thinner than, because the raw minimum reads a fraction of
+ * the wall beside every crease (the drawer's 1.6 mm walls read 0.40). A null p05
+ * from a measured mesh means the walls are thicker than the probe reaches.
+ */
+export function thinnestWall(p05, { probe = null, minFeature = 0.8 } = {}) {
+  if (Number.isFinite(p05)) return ['Thinnest wall (p05)', `${mm(p05)} mm`, p05 < minFeature ? 'warn' : null];
+  if (Number.isFinite(probe)) return ['Thinnest wall (p05)', `over ${mm(probe)} mm`, null];
+  return ['Thinnest wall (p05)', '—', null];
+}
+
 /** "41.50 × 83.50 × 48.00 mm" — one decimal count for the whole triple. */
 export function size3(size, { unit = true } = {}) {
   if (!size || size.some(v => !isFinite(v))) return '—';

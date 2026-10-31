@@ -251,10 +251,14 @@ export function measure(mesh, opts = {}) {
     if (thin.length > 3) findings.push({ code: 'THIN_MORE', severity: 'info', more: thin.length - 3,
       text: `${thin.length - 3} further region${s(thin.length - 3)} under ${f1(MIN_FEATURE)} mm (${f0(p.thinWallArea)} mm² thin in total).` });
   } else {
-    findings.push({ code: 'WALLS_OK', severity: 'ok', minThickness: p.minThickness,
-      text: Number.isFinite(p.minThickness)
-        ? `No wall under ${f1(MIN_FEATURE)} mm; the thinnest measured is ${f2(p.minThickness)} mm.`
-        : `No wall under ${f1(MIN_FEATURE)} mm.` });
+    // p05, not the raw minimum: the minimum is a ray beside a crease reading a
+    // fraction of the wall, and this sentence is the one that says "fine".
+    findings.push({ code: 'WALLS_OK', severity: 'ok', minThickness: p.minThickness, p05Thickness: p.p05Thickness,
+      text: Number.isFinite(p.p05Thickness)
+        ? `No wall under ${f1(MIN_FEATURE)} mm; 95 % of the surface is at least ${f2(p.p05Thickness)} mm thick.`
+        : Number.isFinite(p.thicknessProbe)
+          ? `No wall under ${f1(MIN_FEATURE)} mm; 95 % of the surface is over ${f1(p.thicknessProbe)} mm thick.`
+          : `No wall under ${f1(MIN_FEATURE)} mm.` });
   }
   for (const isl of (p.islands || []).slice(0, 3)) {
     findings.push({ code: 'ISLAND', severity: 'error', area: isl.area, z: isl.lowZ,
@@ -276,7 +280,7 @@ export function measure(mesh, opts = {}) {
     grams: est.grams, cost: costOf(est.grams), costText: cost(est.grams), infill,
     gramsAtInfill: atInfill ? atInfill.grams : est.grams,
     overhangArea: p.overhangArea, overhangPct: p.overhangPct, worstOverhangDeg: p.worstOverhangDeg,
-    minThickness: p.minThickness, thinWalls: thin, thinWallArea: p.thinWallArea, deepChecked: deep,
+    minThickness: p.minThickness, p05Thickness: p.p05Thickness, thicknessProbe: p.thicknessProbe, thinWalls: thin, thinWallArea: p.thinWallArea, deepChecked: deep,
     islands: (p.islands || []).length,
     findings,
     analysis: plain(stripLoops(a)),

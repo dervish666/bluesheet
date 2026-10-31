@@ -14,7 +14,7 @@
 // the existing export / slice / print path takes it unchanged.
 
 import { el, clear, $, $$, trapFocus } from './dom.js';
-import { size3, cm3, grams, count, deg, mm, bytes as fmtBytes, cost } from './format.js';
+import { size3, cm3, grams, count, deg, bytes as fmtBytes, cost, thinnestWall } from './format.js';
 import { Mesh } from '../kernel/mesh.js';
 import { parseProvenance } from '../kernel/provenance.js';
 
@@ -357,9 +357,9 @@ export class Inspector {
       rows.push(['Cost', cost(r.grams), null]);
       rows.push(['Overhang', r.overhangArea > 0 ? `${r.overhangArea.toFixed(1)} mm² · worst ${deg(r.worstOverhangDeg)}` : `none past 50° (worst ${deg(r.worstOverhangDeg)})`, r.overhangArea > 0 ? 'warn' : null]);
       if (r.deepChecked) {
-        rows.push(['Thinnest wall', Number.isFinite(r.minThickness) ? `${mm(r.minThickness)} mm` : '—', Number.isFinite(r.minThickness) && r.minThickness < 0.8 ? 'warn' : null]);
+        rows.push(thinnestWall(r.p05Thickness, { probe: r.thicknessProbe, minFeature: 0.8 }));
       } else {
-        rows.push(['Thinnest wall', 'not measured', null]);
+        rows.push(['Thinnest wall (p05)', 'not measured', null]);
       }
     }
     const frag = document.createDocumentFragment();
