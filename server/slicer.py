@@ -228,6 +228,59 @@ def ensure_datadir():
 
 _OVERRIDE_KEY = re.compile(r"\A[a-z][a-z0-9_]{1,63}\Z")
 
+# The process settings a caller may tune through `overrides`, and nothing else.
+# An allowlist, not a denylist, because Orca's config is several hundred keys and
+# a handful of them run things: `post_process` is a list of shell commands run on
+# the output, every `*_gcode` key is raw G-code sent to a printer with a heater
+# and a moving head, and `filename_format` names a file on disk. A denylist has
+# to know every one of those in every Orca version; this list only has to know
+# what someone tuning a print would reach for. No UI control sends overrides
+# today; slice_smoke.py sends `spiral_mode`. Every name here was checked against
+# js/kernel/bambu-profile.js, a real Bambu project config. Temperatures are
+# filament settings and overrides only reach the process overlay, so they are
+# not here. `brim_type` and `timelapse_type` are set from the request or forced
+# off on purpose and stay ours.
+OVERRIDABLE = frozenset({
+    # walls and shells
+    "wall_loops", "top_shell_layers", "bottom_shell_layers", "top_shell_thickness",
+    "bottom_shell_thickness", "wall_generator", "wall_sequence", "detect_thin_wall",
+    "seam_position", "initial_layer_print_height", "spiral_mode",
+    "reduce_crossing_wall",
+    # infill
+    "sparse_infill_pattern", "top_surface_pattern", "bottom_surface_pattern",
+    "internal_solid_infill_pattern", "infill_wall_overlap", "infill_direction",
+    # ironing
+    "ironing_type", "ironing_speed", "ironing_flow", "ironing_spacing",
+    # speeds and acceleration
+    "outer_wall_speed", "inner_wall_speed", "sparse_infill_speed",
+    "internal_solid_infill_speed", "top_surface_speed", "initial_layer_speed",
+    "initial_layer_infill_speed", "gap_infill_speed", "travel_speed", "bridge_speed",
+    "support_speed", "enable_overhang_speed", "default_acceleration",
+    "outer_wall_acceleration", "bridge_flow",
+    # line widths
+    "line_width", "outer_wall_line_width", "inner_wall_line_width",
+    "initial_layer_line_width", "sparse_infill_line_width", "top_surface_line_width",
+    # supports
+    "support_type", "support_style", "support_threshold_angle",
+    "support_on_build_plate_only", "support_top_z_distance", "support_bottom_z_distance",
+    "support_object_xy_distance", "tree_support_branch_angle",
+    "support_interface_top_layers",
+    # adhesion and dimensional accuracy
+    "brim_width", "brim_object_gap", "skirt_loops", "skirt_distance",
+    "elefant_foot_compensation", "xy_hole_compensation", "xy_contour_compensation",
+    # surface
+    "fuzzy_skin", "fuzzy_skin_thickness", "fuzzy_skin_point_distance",
+    "enable_arc_fitting", "resolution", "print_sequence", "enable_prime_tower",
+    "prime_tower_width",
+})
+
+
+def _plain_preset_name(name):
+    """A preset name is a file stem inside the vendor directory, never a path.
+    preset_path() joins it unsanitised, so `../../x` would leave PROFILES."""
+    return (isinstance(name, str) and name and "/" not in name and "\\" not in name
+            and "\0" not in name and not name.startswith("."))
+
 
 def normalise(raw):
     """Validate and canonicalise the settings a browser sent.
@@ -241,7 +294,7 @@ def normalise(raw):
     profile = raw.get("profile") or "standard"
     if profile in PROCESS_PRESETS:
         process = PROCESS_PRESETS[profile][1]
-    elif isinstance(profile, str) and os.path.isfile(preset_path("process", profile)):
+    elif _plain_preset_name(profile) and os.path.isfile(preset_path("process", profile)):
         process = profile  # an exact vendor preset name
     else:
         raise SliceError(f"unknown profile {profile!r}; expected one of "
@@ -250,7 +303,7 @@ def normalise(raw):
     filament = raw.get("filament") or "pla"
     if filament in FILAMENT_PRESETS:
         fil_preset = FILAMENT_PRESETS[filament][1]
-    elif isinstance(filament, str) and os.path.isfile(preset_path("filament", filament)):
+    elif _plain_preset_name(filament) and os.path.isfile(preset_path("filament", filament)):
         fil_preset = filament
     else:
         raise SliceError(f"unknown filament {filament!r}; expected one of "
@@ -301,26 +354,7 @@ def normalise(raw):
     if brim not in BRIM_TYPES:
         raise SliceError(f"unknown brim {brim!r}; expected one of {sorted(BRIM_TYPES)}")
 
-    overrides = {}
-    managed = {"layer_height", "sparse_infill_density", "enable_support"}
-    if spiral:
-        managed |= {"spiral_mode", "wall_loops", "top_shell_layers",
-                    "bottom_shell_layers", "detect_thin_wall"}
-    for key, value in (raw.get("overrides") or {}).items():
-        if not _OVERRIDE_KEY.match(str(key)):
-            raise SliceError(f"bad override key {key!r}")
-        if key in managed:
-            raise SliceError(f"override {key!r} fights a setting Bluesheet derives from "
-                             f"the request; set it through layerH/infill/supports/"
-                             f"spiral instead")
-        if isinstance(value, (str, int, float)) and not isinstance(value, bool):
-            overrides[str(key)] = str(value)
-        elif isinstance(value, bool):
-            overrides[str(key)] = "1" if value else "0"
-        elif isinstance(value, list) and all(isinstance(v, (str, int, float)) for v in value):
-            overrides[str(key)] = [str(v) for v in value]
-        else:
-            raise SliceError(f"override {key!r} must be a string, number, bool or list")
+    overrides = check_overrides(raw.get("overrides"), spiral)
 
     return {
         "profile": profile if profile in PROCESS_PRESETS else "custom",
@@ -339,6 +373,42 @@ def normalise(raw):
         "overrides": overrides,
         "warnings": warnings,
     }
+
+
+def check_overrides(raw, spiral=False):
+    """The caller's raw `overrides`, validated against OVERRIDABLE and stringified.
+
+    Separate from normalise() so it can be tested without the Orca profiles
+    installed: normalise() refuses an unknown preset before it gets here.
+    """
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        raise SliceError("overrides must be an object")
+    overrides = {}
+    managed = {"layer_height", "sparse_infill_density", "enable_support"}
+    if spiral:
+        managed |= {"spiral_mode", "wall_loops", "top_shell_layers",
+                    "bottom_shell_layers", "detect_thin_wall"}
+    for key, value in raw.items():
+        if not _OVERRIDE_KEY.match(str(key)):
+            raise SliceError(f"bad override key {key!r}")
+        if key in managed:
+            raise SliceError(f"override {key!r} fights a setting Bluesheet derives from "
+                             f"the request; set it through layerH/infill/supports/"
+                             f"spiral instead")
+        if key not in OVERRIDABLE:
+            raise SliceError(f"override {key!r} is not a setting Bluesheet lets a "
+                             f"request change")
+        if isinstance(value, (str, int, float)) and not isinstance(value, bool):
+            overrides[str(key)] = str(value)
+        elif isinstance(value, bool):
+            overrides[str(key)] = "1" if value else "0"
+        elif isinstance(value, list) and all(isinstance(v, (str, int, float)) for v in value):
+            overrides[str(key)] = [str(v) for v in value]
+        else:
+            raise SliceError(f"override {key!r} must be a string, number, bool or list")
+    return overrides
 
 
 def _process_overrides(s, resolved):

